@@ -38,6 +38,12 @@ Imagens: ver `public/images/README.md`.
 
 ---
 
+## Git / GitHub
+
+Repositório: `https://github.com/pmacerqueira/navel-site`
+
+Push após alterações significativas ou antes de publicar. Usar mensagens claras (ex.: `v1.2 - Atualizar catálogos Milwaukee`).
+
 ## Documentação
 
 | Ficheiro | Conteúdo |

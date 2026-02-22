@@ -5,6 +5,10 @@ node_modules/
 dist/
 navel-publicar.zip
 
+# Backups (evitar ficheiros grandes no repo)
+*.tar.gz
+backup-*.tar.gz
+
 # Vite cache
 .vite/
 

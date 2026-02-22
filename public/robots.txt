@@ -1,0 +1,5 @@
+# Navel - Açores, Lda. | https://navel.pt
+User-agent: *
+Allow: /
+
+Sitemap: https://navel.pt/sitemap.xml

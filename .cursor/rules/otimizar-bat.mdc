@@ -1,0 +1,13 @@
+---
+description: Atualizar OPTIMIZAR.bat quando o utilizador pedir otimizações ou preparação para cPanel
+alwaysApply: true
+---
+
+# Atualizar OPTIMIZAR.bat
+
+Quando o utilizador pedir **otimizações**, **preparação para publicação** ou **publicação no cPanel**, deves:
+
+1. Executar as tarefas solicitadas (build, verificação de traduções, links, documentação, etc.)
+2. **Atualizar o ficheiro `OPTIMIZAR.bat`** com quaisquer novos passos que possam ser automatizados
+
+O `OPTIMIZAR.bat` é o pipeline único que o utilizador executa para ter o site pronto para publicação. Sempre que adicionares uma nova etapa automatizável (ex: novo script, verificação, comando), adiciona-a ao .bat e atualiza o comentário no cabeçalho com a lista de passos.

@@ -1,0 +1,23 @@
+========================================
+  Navel — Checklist Publicação cPanel
+========================================
+
+ANTES
+-----
+[ ] Executar OPTIMIZAR.bat
+[ ] Confirmar que navel-publicar.zip foi criado
+
+cPanel
+------
+[ ] File Manager → public_html
+[ ] Upload navel-publicar.zip → Extract → Apagar ZIP
+
+DEPOIS
+------
+[ ] https://navel.pt (página principal)
+[ ] https://navel.pt/#/contacto (menu e formulário)
+[ ] https://navel.pt/sitemap.xml e /robots.txt
+[ ] Formulário de contacto (email em comercial@navel.pt)
+[ ] Idiomas PT, EN, ES
+
+========================================

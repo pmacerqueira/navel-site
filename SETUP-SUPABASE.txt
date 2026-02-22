@@ -1,0 +1,39 @@
+========================================
+  Navel — Configuração Supabase (rápida)
+========================================
+
+1. EDITAR .env
+   Abra o ficheiro .env e substitua pelos valores do seu projeto:
+   - Supabase → Settings → API
+   - Project URL  → VITE_SUPABASE_URL
+   - anon public  → VITE_SUPABASE_ANON_KEY
+
+2. EXECUTAR SQL
+   - Supabase → SQL Editor → New query
+   - Copie todo o conteúdo de docs/supabase-setup.sql
+   - Cole e clique Run
+
+3. ATIVAR VERIFICAÇÃO DE EMAIL
+   - Authentication → Providers → Email
+   - Ative "Confirm email"
+
+4. CRIAR BUCKET
+   - Storage → New bucket
+   - Nome: documentos
+   - Privado (não público)
+   - Policies → New policy → SELECT para authenticated
+
+5. CRIAR ADMIN
+   - Authentication → Users → Add user
+   - Email: comercial@navel.pt
+   - Password: (escolha uma segura)
+   - Create user
+
+6. TESTAR
+   npm run dev
+   Aceda a http://localhost:3000/#/login
+   Entre com comercial@navel.pt e a sua password
+
+========================================
+Ver docs/SUPABASE.md para detalhes.
+========================================

@@ -1,0 +1,29 @@
+{
+  "name": "navel-website",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "optimize-images": "node scripts/optimize-images.js",
+    "kill-preview": "node scripts/kill-preview-ports.js",
+    "build:fresh": "npm run kill-preview && npm run optimize-images && npm run build",
+    "make-zip": "node scripts/make-zip.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "i18next": "^23.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^14.0.0",
+    "react-router-dom": "^6.22.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "archiver": "^7.0.1",
+    "sharp": "^0.34.5",
+    "vite": "^5.1.0"
+  }
+}

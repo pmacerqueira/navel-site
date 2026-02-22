@@ -66,4 +66,12 @@ URLs são em hash (ex.: https://navel.pt/#/contacto). Não é preciso configurar
 
 ## Atualizações
 
-Alterar código local → executar **OPTIMIZAR.bat** → enviar novo ZIP (ou conteúdo de `dist/`) para o servidor, substituindo o anterior. Os hashes nos assets garantem que o browser carrega as novas versões.
+Alterar código local → executar **OPTIMIZAR.bat** → enviar novo ZIP para o servidor, substituindo o anterior. Os hashes nos assets garantem que o browser carrega as novas versões.
+
+**Nota sobre catálogos:** A pasta `catalogos/` (PDFs) **não** é incluída no ZIP por defeito. Já está no cPanel e não precisa de ser re-enviada a cada deploy. Só enviar quando houver novos catálogos ou alterações nessa pasta.
+
+Para gerar um ZIP **com** catálogos (ex: ao adicionar novos PDFs):
+
+```
+node scripts/make-zip.js --with-catalogos
+```

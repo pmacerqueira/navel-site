@@ -107,7 +107,7 @@ if not exist "dist\images\catalogos\xtools-resumo" (
 echo     Build verificado OK.
 
 echo.
-echo [7/7] A criar navel-publicar.zip (conteudo completo de dist)...
+echo [7/7] A criar navel-publicar.zip (sem catalogos - ja estao no cPanel)...
 call npm run make-zip
 if %errorlevel% neq 0 (
     echo [ERRO] Falha ao criar ZIP.
@@ -121,6 +121,8 @@ echo   Concluido com sucesso!
 echo ========================================
 echo.
 echo Ficheiro criado: navel-publicar.zip
+echo NOTA: pasta catalogos/ excluida (ja esta no cPanel).
+echo       Para incluir catalogos: node scripts/make-zip.js --with-catalogos
 echo.
 echo No cPanel:
 echo   1. File Manager - public_html

@@ -21,6 +21,7 @@ const MAX_WIDTH = {
   'kaeser-bg.png': 800,
   'og-image.png': 1200,
   'logo.png': 300,
+  'navel-icon.png': 128,
   'beta-action-2025.png': 800,
   'magazine-telwin-2026.png': 800,
   'promo-fevereiro-2026.png': 800,

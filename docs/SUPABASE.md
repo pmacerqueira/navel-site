@@ -49,7 +49,13 @@ O ficheiro `docs/supabase-setup.sql` já inclui a criação do bucket `documento
 
 ## 7. Criar o administrador
 
-**Opção A — Supabase Dashboard (recomendado):**
+**Opção A — Script (recomendado):**
+
+1. Em `.env`, adicione `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Settings → API → service_role)
+2. Execute: `npm run create-admin`
+3. Guarde a password gerada — use-a para login em `/#/login`
+
+**Opção B — Supabase Dashboard:**
 
 1. **Authentication** → **Users** → **Add user**
 2. Email: `comercial@navel.pt`
@@ -57,9 +63,9 @@ O ficheiro `docs/supabase-setup.sql` já inclui a criação do bucket `documento
 4. **Create user**
 5. O trigger aprova-o automaticamente — pode entrar no site imediatamente
 
-**Opção B — Registo pelo site:**
+**Opção C — Registo pelo site:**
 
-1. Aceda ao site → **Registar**
+1. Aceda ao site → **Registar** (requer verificação de email)
 2. Registe-se com `comercial@navel.pt`
 3. Verifique o email
 4. O trigger aprova-o automaticamente — faça login

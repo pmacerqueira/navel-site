@@ -62,6 +62,16 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('documentos', 'documentos', false)
 ON CONFLICT (id) DO NOTHING;
 
+-- Função auxiliar: verifica se o utilizador é o admin (comercial@navel.pt)
+CREATE OR REPLACE FUNCTION public.is_admin_documentos()
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(
+    (SELECT email FROM auth.users WHERE id = auth.uid()) = 'comercial@navel.pt',
+    (auth.jwt()->>'email') = 'comercial@navel.pt',
+    false
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- Política: utilizadores autenticados podem ler (download)
 DROP POLICY IF EXISTS "Authenticated read documentos" ON storage.objects;
 CREATE POLICY "Authenticated read documentos"
@@ -69,12 +79,24 @@ CREATE POLICY "Authenticated read documentos"
   TO authenticated
   USING (bucket_id = 'documentos');
 
--- Política: admin pode fazer upload
+-- Política: admin pode fazer upload (INSERT)
 DROP POLICY IF EXISTS "Admin upload documentos" ON storage.objects;
 CREATE POLICY "Admin upload documentos"
   ON storage.objects FOR INSERT
   TO authenticated
-  WITH CHECK (
-    bucket_id = 'documentos' AND
-    (SELECT email FROM auth.users WHERE id = auth.uid()) = 'comercial@navel.pt'
-  );
+  WITH CHECK (bucket_id = 'documentos' AND public.is_admin_documentos());
+
+-- Política: admin pode ler para verificar ficheiros existentes (necessário para upsert)
+DROP POLICY IF EXISTS "Admin select documentos" ON storage.objects;
+CREATE POLICY "Admin select documentos"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'documentos' AND public.is_admin_documentos());
+
+-- Política: admin pode atualizar/substituir ficheiros (UPDATE — necessário para upsert)
+DROP POLICY IF EXISTS "Admin update documentos" ON storage.objects;
+CREATE POLICY "Admin update documentos"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'documentos' AND public.is_admin_documentos())
+  WITH CHECK (bucket_id = 'documentos');

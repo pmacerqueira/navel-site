@@ -130,6 +130,7 @@ export default function AreaReservada() {
                 <Link to="/admin" className="btn btn--outline btn--sm">{t('auth.adminPanel')}</Link>
               )}
             </div>
+            <p className="area-reservada__welcome">{t('auth.areaWelcome', { email: user?.email ?? '' })}</p>
             <p className="text-muted">{t('auth.areaLead')}</p>
             <div className="area-reservada__user">
               <span>{user?.email ?? ''}</span>

@@ -5,6 +5,7 @@ import Footer from './Footer'
 import Breadcrumbs from './Breadcrumbs'
 import CookieConsent from './CookieConsent'
 import WhatsAppButton from './WhatsAppButton'
+import NavelDashboardButton from './NavelDashboardButton'
 import TawkWidget from './TawkWidget'
 import PageTitle from './PageTitle'
 
@@ -17,6 +18,7 @@ export default function Layout({ children }) {
     <>
       <PageTitle />
       <CookieConsent />
+      <NavelDashboardButton />
       <WhatsAppButton />
       <TawkWidget />
       <a href="#main-content" className="skip-link">

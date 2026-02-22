@@ -1,10 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function AguardarAprovacao() {
   const { t } = useTranslation()
   const { user, isAdmin, signOut } = useAuth()
+
+  if (isAdmin) return <Navigate to="/area-reservada" replace />
 
   return (
     <section className="section section--auth">

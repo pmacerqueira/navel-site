@@ -24,7 +24,8 @@
    - Policies → New policy → SELECT para authenticated
 
 5. CRIAR ADMIN
-   - Authentication → Users → Add user
+   Opção A (script): Adicione SUPABASE_SERVICE_ROLE_KEY ao .env → npm run create-admin
+   Opção B (dashboard): Authentication → Users → Add user
    - Email: comercial@navel.pt
    - Password: (escolha uma segura)
    - Create user

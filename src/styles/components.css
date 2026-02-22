@@ -806,3 +806,77 @@
     height: 20px;
   }
 }
+
+/* =============================================
+   Botão flutuante — Dashboard AT_Manut (ícone N)
+   Posicionado acima do botão WhatsApp
+   ============================================= */
+.navel-dashboard-btn {
+  position: fixed;
+  bottom: calc(var(--space-lg) + 56px + 12px);
+  right: var(--space-lg);
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: #0f3460;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(15, 52, 96, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+.navel-dashboard-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(15, 52, 96, 0.55);
+}
+.navel-dashboard-btn__icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+}
+@keyframes navel-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.navel-dashboard-btn:hover .navel-dashboard-btn__icon {
+  animation: navel-spin 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+.navel-dashboard-btn__tooltip {
+  position: absolute;
+  right: calc(100% + var(--space-md));
+  white-space: nowrap;
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.navel-dashboard-btn:hover .navel-dashboard-btn__tooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+.navel-dashboard-btn:focus-visible {
+  outline: 2px solid #0f3460;
+  outline-offset: 3px;
+}
+
+@media (max-width: 1024px) {
+  .navel-dashboard-btn {
+    width: 40px;
+    height: 40px;
+    bottom: calc(var(--space-md) + 40px + 10px);
+    right: var(--space-md);
+  }
+  .navel-dashboard-btn__icon {
+    width: 22px;
+    height: 22px;
+  }
+}

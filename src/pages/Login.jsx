@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { ADMIN_EMAIL } from '../constants'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -31,8 +32,9 @@ export default function Login() {
         return
       }
       if (data?.user) {
+        const isAdminUser = data.user.email === ADMIN_EMAIL
         const { data: profile } = await supabase.from('profiles').select('approved').eq('id', data.user.id).single()
-        if (profile?.approved) {
+        if (isAdminUser || profile?.approved) {
           navigate(from, { replace: true })
         } else {
           navigate('/aguardar-aprovacao', { replace: true })

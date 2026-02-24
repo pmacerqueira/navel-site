@@ -5,8 +5,9 @@ node_modules/
 dist/
 navel-publicar.zip
 
-# Catálogos (PDFs grandes — já estão no cPanel, não precisam de estar no repo)
+# Catálogos (PDFs e thumbnails — já estão no cPanel, não precisam de estar no repo)
 public/catalogos/
+public/images/catalogos/
 
 # Backups (evitar ficheiros grandes no repo)
 *.tar.gz

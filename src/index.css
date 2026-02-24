@@ -65,8 +65,14 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth aplicado apenas a âncoras via CSS, não a window.scrollTo */
   -webkit-overflow-scrolling: touch;
+}
+/* Smooth scroll só para âncoras internas (#secção), não afecta navegação entre páginas */
+@media (prefers-reduced-motion: no-preference) {
+  html:focus-within {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
@@ -128,7 +134,7 @@ h4 { font-size: 1.1rem; }
   padding-block: var(--space-2xl);
 }
 .section--hero {
-  padding-block: var(--space-3xl);
+  padding-block: var(--space-xl);
 }
 
 /* Buttons */
@@ -294,5 +300,22 @@ h4 { font-size: 1.1rem; }
 @media (max-width: 1024px) {
   :root {
     --header-h: 56px;
+  }
+}
+
+/* Landscape mobile: hero section mais compacto para caber no viewport estreito em altura */
+@media (max-width: 900px) and (orientation: landscape) {
+  .section--hero {
+    padding-block: var(--space-sm);
+  }
+}
+
+/* Ecrãs muito estreitos (<400px): padding de cards reduzido */
+@media (max-width: 400px) {
+  .card {
+    padding: var(--space-lg);
+  }
+  .container {
+    padding-inline: var(--space-sm);
   }
 }

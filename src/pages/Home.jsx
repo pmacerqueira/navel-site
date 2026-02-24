@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { EMAIL_COMERCIAL, EMAIL_OFICINA, CONTACT_LOCATIONS, HOME_CAMPAIGNS, MANUT_DASHBOARD_URL } from '../constants'
+import { EMAIL_COMERCIAL, EMAIL_OFICINA, CONTACT_LOCATIONS, HOME_CAMPAIGNS } from '../constants'
 import HeroAnimation from '../components/HeroAnimation'
 import SearchBar from '../components/SearchBar'
 import ScrollReveal from '../components/ScrollReveal'
@@ -46,16 +46,6 @@ export default function Home() {
                 <div className="card values__card">
                   <h3>{t(item.title)}</h3>
                   <p className="text-muted">{t(item.text)}</p>
-                  {i === 2 && (
-                    <div className="values__dashboard">
-                      <a href={MANUT_DASHBOARD_URL} className="btn values__dashboard-btn" aria-label="Aceder ao Dashboard de manutenções Navel">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                        </svg>
-                        Dashboard
-                      </a>
-                    </div>
-                  )}
                 </div>
               </ScrollReveal>
             ))}

@@ -880,3 +880,75 @@
     height: 22px;
   }
 }
+
+/* ── Responsividade adicional ──────────────────────────────────────────── */
+
+/* Tooltips: ocultar em touch/mobile — sem estado hover real em toque */
+@media (max-width: 1024px) {
+  .whatsapp-btn__tooltip,
+  .navel-dashboard-btn__tooltip {
+    display: none;
+  }
+}
+
+/* Landscape mobile/tablet: botões flutuantes mais compactos para não
+   sobreposicionar conteúdo quando o viewport é estreito em altura */
+@media (max-width: 900px) and (orientation: landscape) {
+  .whatsapp-btn {
+    width: 36px;
+    height: 36px;
+    bottom: var(--space-sm);
+    right: var(--space-sm);
+  }
+  .whatsapp-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .navel-dashboard-btn {
+    width: 36px;
+    height: 36px;
+    bottom: calc(var(--space-sm) + 36px + 8px);
+    right: var(--space-sm);
+  }
+  .navel-dashboard-btn__icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Landscape mobile: nav com scroll quando o menu fica mais alto que o ecrã */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .header__nav {
+    max-height: calc(100vh - var(--header-total));
+    max-height: calc(100dvh - var(--header-total));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Cookie consent: compacto em landscape para não ocultar conteúdo */
+@media (max-width: 900px) and (orientation: landscape) {
+  .cookie-consent {
+    padding: var(--space-xs) var(--space-md);
+  }
+  .cookie-consent__inner {
+    flex-wrap: nowrap;
+    gap: var(--space-sm);
+  }
+  .cookie-consent__title {
+    flex: 0 0 auto;
+  }
+  .cookie-consent__text {
+    font-size: 0.75rem;
+  }
+  .cookie-consent__btn {
+    flex-shrink: 0;
+  }
+}
+
+/* Newsletter footer: eliminar min-width em ecrãs muito estreitos */
+@media (max-width: 480px) {
+  .footer__newsletter-input {
+    min-width: 0;
+  }
+}

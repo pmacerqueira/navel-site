@@ -11,3 +11,10 @@ Quando o utilizador pedir **otimizações**, **preparação para publicação** 
 2. **Atualizar o ficheiro `OPTIMIZAR.bat`** com quaisquer novos passos que possam ser automatizados
 
 O `OPTIMIZAR.bat` é o pipeline único que o utilizador executa para ter o site pronto para publicação. Sempre que adicionares uma nova etapa automatizável (ex: novo script, verificação, comando), adiciona-a ao .bat e atualiza o comentário no cabeçalho com a lista de passos.
+
+## Continuidade entre agentes/modelos
+
+- Não assumir memória global automática entre chats/sessões.
+- Não assumir aprendizagem permanente automática de um modelo para outro.
+- Em cada nova conversa, iniciar com resumo curto: objetivo, estado atual, risco principal, ficheiros canónicos e próxima ação.
+- Manter continuidade através de código + `.cursor/rules` + `CHANGELOG.md` + `docs/INDEX.md`.

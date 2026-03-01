@@ -46,15 +46,31 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 
 ## Documentação
 
-| Ficheiro | Conteúdo |
-|----------|----------|
-| **DEPLOY.md** | Publicação no cPanel, estrutura no servidor |
-| **docs/SEO.md** | Meta tags, Schema.org, palavras-chave, Search Console |
-| **docs/ESTRUTURA.md** | Fluxo da app, componentes, dados |
-| **docs/OTIMIZACOES.md** | Performance, build, imagens |
-| **PUBLICAR-CHECKLIST.txt** | Checklist antes/depois de publicar |
+### Fonte canónica (ordem de prioridade)
+1. `docs/ARQUITETURA.md`
+2. `docs/INDEX.md`
+3. `CHANGELOG.md`
+4. `DEPLOY.md`
+
+### Núcleo canónico
+- `docs/INDEX.md` — mapa oficial dos documentos.
+- `docs/ARQUITETURA.md` — decisões técnicas e limites de projeto.
+- `CHANGELOG.md` — histórico de mudanças e decisões.
+- `DEPLOY.md` — processo de publicação.
+
+### Operação
+- `docs/SETUP.md`
+- `docs/TROUBLESHOOTING.md`
+- `docs/CREDENCIAIS-SEGURANCA.md`
+- `docs/SEO.md`
+- `docs/OTIMIZACOES.md`
+- `PUBLICAR-CHECKLIST.txt`
 
 Área reservada (Supabase): `docs/SUPABASE.md`. Live chat (Tawk.to): `docs/TAWKTO-CHATBOT.md`.
+
+> Nota de arquitetura: `navel-site` usa Supabase na área reservada; o projeto `AT_Manut` usa MySQL+PHP/cPanel como fonte de verdade. Não misturar decisões entre projetos.
+>
+> Nota de continuidade entre agentes: não existe memória global automática entre todos os chats/modelos; a continuidade é mantida no repositório (código + regras + changelog + documentação).
 
 ---
 

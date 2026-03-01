@@ -1,5 +1,8 @@
 # tawk.to — Próximos passos (quando voltares)
 
+> Documento de acompanhamento operacional (histórico/evolutivo).
+> Para estado arquitetural atual, usar `docs/ARQUITETURA.md` e `CHANGELOG.md`.
+
 O código já está no projeto (componente `TawkWidget`, constantes, Layout). Falta só ativar com a tua conta.
 
 ## Checklist rápido

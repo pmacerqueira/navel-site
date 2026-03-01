@@ -20,6 +20,8 @@ backup-*.tar.gz
 .env
 .env.local
 .env.*.local
+Supabase e MySQL.txt
+docs/CREDENCIAIS.md
 
 # Logs
 *.log

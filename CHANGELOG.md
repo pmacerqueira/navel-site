@@ -1,5 +1,42 @@
 # Changelog — navel-site
 
+## [0.2.2] — 2026-03-29
+
+### Privacidade / i18n
+- **`src/locales`:** a política completa estava em `scripts/privacy-locale-*.json` mas **não** tinha sido fundida nos JSON principais, pelo que em EN (e outros) apareciam chaves cruas tipo `privacy.introWho` em [navel.pt/privacidade](https://navel.pt/privacidade). Corrido `merge-privacy-locales.js` e adicionado **`prebuild`** → `npm run merge-locales` (privacy + rgpd) para cada `npm run build` / `OPTIMIZAR.bat`.
+- **Documentação:** `docs/INDEX.md`, `ESTRUTURA.md`, `OTIMIZACOES.md`, `TROUBLESHOOTING.md` (secção 2a), `DEPLOY.md`, `PUBLICAR-CHECKLIST.txt`, `OPTIMIZAR.bat` (cabeçalho passo 5), `.cursor/rules/otimizar-bat.mdc` — fluxo merge-locales e fontes canónicas.
+
+### Supabase keep-alive (anti-pausa free-tier)
+- **`docs/supabase-keep-alive-rpc.sql`:** tabela `supabase_keepalive_heartbeats` + `keep_alive_ping()` passa a fazer **UPDATE** (escrita leve na BD), mais alinhado com o que o Supabase costuma contar como actividade.
+- **`public/keep-alive-supabase.php` (v1.3):** removida chave anon hardcoded (passa a ser obrigatório `secret.php` ou env); **re-tentativas** na RPC; segundo ping **GET `/auth/v1/health`**; suporte a `secret.php` com array `url` + `anon_key`; cron recomendado **2×/dia** via `curl` ao URL público; documentação em `docs/SUPABASE.md` §8.
+- **Segurança:** quem tiver exposto a chave antiga deve **gerar nova anon key** no dashboard Supabase e actualizar servidor + `.env`.
+
+### Condições gerais de venda e serviço (CGVS)
+- **Página `/condicoes-gerais`:** texto conforme impresso IMP.01(01), edição 01 / 30.03.2022, em `src/data/cgvs-pt.js`; renderização em `src/pages/CondicoesGerais.jsx` com listas (ex. §3.6, §6.2); nota sobre numeração (capítulos 10 e 11 inexistentes no documento fonte).
+- **i18n:** chaves `cgvs.*` e `footer.cgvs` (PT/EN/ES); EN/ES com aviso de que a redação juridicamente vinculante é a versão em português.
+- **SEO e navegação:** `PageTitle`, `Breadcrumbs`, `Footer`, `public/sitemap.xml`.
+- **Documentação:** `docs/INDEX.md`, `docs/SEO.md`, `docs/ESTRUTURA.md`, `DEPLOY.md`, `PUBLICAR-CHECKLIST.txt`, `OPTIMIZAR.bat` (notas pós-deploy e referência CGVS).
+
+## [0.2.1] — 2026-03-23
+
+### Privacidade e RGPD
+- **Página /rgpd:** compromisso com o RGPD, lista de direitos dos titulares, forma de exercício, remissão à Política de Privacidade e botão para contacto; PT/EN/ES; link no rodapé; `sitemap.xml`; ficheiros fonte `scripts/rgpd-locale-*.json` + `node scripts/merge-rgpd-locales.js`. (A Global Filtros usa também um formulário dedicado; aqui o pedido faz-se por contacto/e-mail, coerente com o site.)
+- **Política de Privacidade** alargada (RGPD): âmbito, definições, contacto para proteção de dados, dados por canal (contacto, newsletter por e-mail, área Supabase), encargados (Supabase, Google Fonts, alojamento), conservação, marketing, transferências extra-EEE, segurança, alterações e data de atualização; três idiomas. Edição auxiliar: `scripts/privacy-locale-*.json` + `node scripts/merge-privacy-locales.js`.
+
+### SEO e URLs
+- **BrowserRouter** em substituição do HashRouter: URLs limpas (`/contacto`, `/produtos`, …) com fallback SPA no `.htaccess` (Apache).
+- **Redireciono 301** `www.navel.pt` → `https://navel.pt` e **HTTPS** forçado (mesma regra que antes, estendida).
+- **Sitemap** com `loc` sem fragmento (`#`); removida entrada `/novidades` (redirecciona para `/catalogos`); `lastmod` actualizado.
+- **Meta keywords** removidos do `index.html` (não usados pelo Google); descrição EN em `meta` duplicado removida — descrições por idioma via `react-helmet-async` + `PageTitle`.
+- **`PageTitle` + Helmet:** por rota — `title`, `description`, `canonical`, `og:*`, `twitter:*`, `robots` (mantém `noindex` em login/registo/área reservada/admin/aguardar).
+- **`send-contact.php`**, **Contacto.jsx**, **Register.jsx:** redirecções e callbacks alinhados com paths sem hash; origem canónica `https://navel.pt`.
+- **`MANUT_DASHBOARD_URL`:** `https://navel.pt/manut/` (evita salto www).
+- **Compatibilidade:** ao carregar, URLs antigas `#/rota` são normalizadas para `/rota` antes do React Router.
+- **Supabase:** garantir que `https://navel.pt/login` está em **Redirect URLs** (email de confirmação de registo).
+- **Catálogos Beta 2026:** PDFs via [Bolas folhetos](https://www.bolas.pt/pt/folhetos_987.html); miniaturas block2 / block3 / block4 → tabela, Action, Worker (`beta-tabela-precos-2026.jpg`, `beta-action-2026.jpg`, `beta-worker-2026.jpg`). Ver `docs/CATALOGOS-BOLAS-BETA-TELWIN.md`.
+
+---
+
 Política de continuidade:
 - cada entrada deve registar contexto, decisão e impacto;
 - no fim de cada sessão crítica, acrescentar nota de handoff (próximo passo claro);

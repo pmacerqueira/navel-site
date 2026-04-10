@@ -4,7 +4,7 @@
 
 ANTES
 -----
-[ ] Executar OPTIMIZAR.bat
+[ ] Executar OPTIMIZAR.bat (build ja corre merge privacy+rgpd p/ src/locales)
 [ ] Confirmar que navel-publicar.zip foi criado
 
 cPanel
@@ -15,8 +15,9 @@ cPanel
 DEPOIS
 ------
 [ ] https://navel.pt (página principal)
-[ ] https://navel.pt/#/contacto (menu e formulário)
-[ ] https://navel.pt/sitemap.xml e /robots.txt
+[ ] https://navel.pt/contacto (menu, formulário e F5 sem 404)
+[ ] https://navel.pt/privacidade (PT e EN: sem chaves tipo privacy.xxx) e /rgpd e /condicoes-gerais (F5 = SPA)
+[ ] https://navel.pt/sitemap.xml inclui /condicoes-gerais e /robots.txt
 [ ] Formulário de contacto (email em comercial@navel.pt)
 [ ] Idiomas PT, EN, ES
 

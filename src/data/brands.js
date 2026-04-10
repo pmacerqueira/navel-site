@@ -289,10 +289,34 @@ const MILWAUKEE_BRAND = {
   brandColor: '#b90211',
 }
 
-/** Catálogos Beta (PDFs alojados localmente; thumbnails em public/images/catalogos/beta/) */
+/**
+ * Catálogos Beta via Bolas (banner 165): block2 = tabela; block3 + file271 = Action; block4 + file224 = Worker.
+ * C45/RSC50: PDF local + thumbnail em public/.
+ */
+/** PDFs Bolas; capas em public/images/catalogos/beta/ (script download-beta-thumbnails.js) */
+export const BOLAS_BETA_TABELA_2026_PDF =
+  'https://www.bolas.pt/downloads/file275_pt.pdf?cbid=165&cbida=2'
+export const BOLAS_BETA_ACTION_2026_PDF =
+  'https://www.bolas.pt/downloads/file271_pt.pdf?cbid=165&cbida=3'
+export const BOLAS_BETA_WORKER_2026_PDF =
+  'https://www.bolas.pt/downloads/file224_pt.pdf?eidb=141&eidbp=200&cbid=165&cbida=4'
+
 const BETA_CATALOG_ITEMS = [
-  { titleKey: 'catalogs.betaGeral2025', catalogPdf: 'beta/catalogo-geral-2025.pdf', imageSrc: '/images/catalogos/beta/catalogo-geral-2025.webp' },
-  { titleKey: 'catalogs.betaAction2025', catalogPdf: 'beta/beta-action-2025.pdf', imageSrc: '/images/catalogos/beta/beta-action-2025.webp' },
+  {
+    titleKey: 'catalogs.betaTabelaPrecos2026',
+    url: BOLAS_BETA_TABELA_2026_PDF,
+    imageSrc: '/images/catalogos/beta/beta-tabela-precos-2026.jpg',
+  },
+  {
+    titleKey: 'catalogs.betaAction2026',
+    url: BOLAS_BETA_ACTION_2026_PDF,
+    imageSrc: '/images/catalogos/beta/beta-action-2026.jpg',
+  },
+  {
+    titleKey: 'catalogs.betaWorker2026',
+    url: BOLAS_BETA_WORKER_2026_PDF,
+    imageSrc: '/images/catalogos/beta/beta-worker-2026.jpg',
+  },
   { titleKey: 'catalogs.betaC45Pro20', catalogPdf: 'beta/catalogo-c45pro-2-0.pdf', imageSrc: '/images/catalogos/beta/catalogo-c45pro-2-0.webp' },
   { titleKey: 'catalogs.betaRSC5020', catalogPdf: 'beta/catalogo-rsc50-2-0.pdf', imageSrc: '/images/catalogos/beta/catalogo-rsc50-2-0.webp' },
 ]
@@ -367,7 +391,7 @@ const betaExtraItems = BETA_CATALOG_ITEMS.map((item) => ({
   fallbackLogo: BETA_BRAND.fallbackLogo,
   fallbackBrand: BETA_BRAND.fallbackBrand,
   brandColor: BETA_BRAND.brandColor,
-  url: `/catalogos/${item.catalogPdf}`,
+  url: item.url ?? `/catalogos/${item.catalogPdf}`,
 }))
 
 const facomExtraItems = FACOM_CATALOG_ITEMS.map((item) => ({

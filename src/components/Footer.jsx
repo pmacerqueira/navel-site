@@ -31,7 +31,7 @@ export default function Footer() {
         <div className="footer__main">
           <div className="footer__brand">
             <Link to="/" className="footer__brand-logo">
-              <img src="/images/logo.png" alt="Navel - Açores, Lda." width="120" height="38" loading="lazy" decoding="async" />
+              <img src="/images/NAVEL_LOGO.jpg" alt="José Gonçalves Cerqueira (NAVEL-AÇORES), Lda." width="120" height="38" loading="lazy" decoding="async" />
             </Link>
             <p className="footer__tagline text-muted">{t('footer.tagline')}</p>
           </div>
@@ -104,6 +104,10 @@ export default function Footer() {
           </p>
           <p className="text-muted footer__legal">
             <Link to="/privacidade" className="footer__privacy-link">{t('footer.privacy')}</Link>
+            {' · '}
+            <Link to="/rgpd" className="footer__privacy-link">{t('footer.rgpd')}</Link>
+            {' · '}
+            <Link to="/condicoes-gerais" className="footer__privacy-link">{t('footer.cgvs')}</Link>
             {' · '}
             <a href={LIVRO_RECLAMACOES_URL} target="_blank" rel="noopener noreferrer" className="footer__privacy-link" aria-label={`${t('footer.complaintsBook')} (${t('a11y.opensNewWindow')})`}>
               {t('footer.complaintsBook')}

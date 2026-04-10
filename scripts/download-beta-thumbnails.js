@@ -1,6 +1,7 @@
 /**
- * Descarrega os thumbnails dos catálogos Beta do site da Proxira
- * e grava em public/images/catalogos/beta/.
+ * Descarrega thumbnails Beta para public/images/catalogos/beta/.
+ * — Bolas 2026 (banner 165): block2 = tabela; block3 = Action (file271); block4 = Worker (file224), como no HTML Bolas.
+ * — C45 / RSC50: Proxira.
  *
  * Executar: node scripts/download-beta-thumbnails.js
  */
@@ -12,8 +13,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = join(__dirname, '..', 'public', 'images', 'catalogos', 'beta')
 
 const BETA_THUMBNAILS = [
-  { url: 'https://proxira.pt/wp-content/uploads/2025/03/Catalogo-Beta-2025-1.webp', file: 'catalogo-geral-2025.webp' },
-  { url: 'https://proxira.pt/wp-content/uploads/2025/03/Catalogo-Beta-Action-2025-1.webp', file: 'beta-action-2025.webp' },
+  { url: 'https://1941730701.rsc.cdn77.org/images/block2_165.jpg?1774265454', file: 'beta-tabela-precos-2026.jpg' },
+  { url: 'https://1941730701.rsc.cdn77.org/images/block3_165.jpg?1774265533', file: 'beta-action-2026.jpg' },
+  { url: 'https://1941730701.rsc.cdn77.org/images/block4_165.jpg?1757935536', file: 'beta-worker-2026.jpg' },
   { url: 'https://proxira.pt/wp-content/uploads/2025/04/Catalogo-C45PRO-2.0-Beta.webp', file: 'catalogo-c45pro-2-0.webp' },
   { url: 'https://proxira.pt/wp-content/uploads/2025/04/Catalogo-RSC50-2.0-Beta.webp', file: 'catalogo-rsc50-2-0.webp' },
 ]

@@ -10,6 +10,8 @@ const ROUTE_BREADCRUMBS = {
   '/catalogos': ['nav.catalogs'],
   '/contacto': ['nav.contact'],
   '/privacidade': ['footer.privacy'],
+  '/rgpd': ['footer.rgpd'],
+  '/condicoes-gerais': ['footer.cgvs'],
 }
 
 export default function Breadcrumbs() {

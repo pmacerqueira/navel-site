@@ -1,0 +1,19 @@
+{
+  "title": "RGPD",
+  "lead": "Compromiso con el Reglamento General de Protección de Datos (RGPD) y con los derechos de las personas sobre sus datos personales.",
+  "intro": "Sus datos personales son importantes para nosotros. Procuramos tratarlos de forma lícita, leal y transparente en el sitio navel.pt y en su relación con nosotros.",
+  "rightsTitle": "Derechos de los interesados",
+  "rightsIntro": "Como interesado puede ejercer, en los términos y límites legales del RGPD, los siguientes derechos:",
+  "rightAccess": "Derecho de acceso",
+  "rightRectification": "Derecho de rectificación",
+  "rightErasure": "Derecho de supresión («derecho al olvido»)",
+  "rightRestriction": "Derecho a la limitación del tratamiento",
+  "rightObject": "Derecho de oposición",
+  "rightPortability": "Derecho a la portabilidad de los datos (cuando proceda)",
+  "howTitle": "Cómo ejercer sus derechos",
+  "howText": "Para ejercer alguno de estos derechos, contáctenos por escrito (correo indicado en la Política de privacidad o formulario de contacto), con claridad sobre la solicitud. Para tramitarla con seguridad, podremos pedir datos que permitan verificar su identidad. Respondemos sin dilación indebida según la ley — por regla general en un plazo máximo de 30 días — salvo impedimento legal o complejidad justificada.",
+  "privacyLinkText": "En la Política de privacidad encontrará detalles sobre tratamientos, finalidades, conservación, encargados del tratamiento, transferencias internacionales, cookies y datos de contacto.",
+  "ctaTitle": "Enviar una solicitud",
+  "ctaText": "Puede usar el formulario de contacto del sitio e indicar en el asunto o mensaje que la solicitud trata de protección de datos (p. ej., acceso, rectificación o supresión). También puede escribir directamente a los correos indicados en la Política de privacidad.",
+  "ctaButton": "Ir a contacto"
+}

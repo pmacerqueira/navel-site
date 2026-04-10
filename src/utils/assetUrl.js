@@ -4,6 +4,7 @@
  */
 export function assetUrl(path) {
   if (!path || typeof path !== 'string') return path
+  if (/^https?:\/\//i.test(path)) return path
   const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
   return base + (path.startsWith('/') ? path : '/' + path)
 }

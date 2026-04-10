@@ -10,12 +10,17 @@ REM  1. Instalar dependencias (se necessario)
 REM  2. Descarregar thumbnails Facom, Beta (Proxira), XTOOLS folhetos e XTOOLS catalogo-resumo (xtools.pt)
 REM  3. Otimizar imagens (reduz tamanho, melhora carregamento)
 REM  4. Limpar pasta dist (build limpo)
-REM  5. Build de producao (npm run build)
-REM  6. Verificar build
+REM  5. Build de producao - npm run build (inclui prebuild: merge privacy + rgpd para src/locales)
+REM  6. Verificar build (index.html, assets; pos-deploy: /privacidade, /rgpd, /condicoes-gerais)
 REM  7. Criar navel-publicar.zip (conteudo completo de dist) para upload no cPanel
+REM
+REM  Actualizar cartoes Beta (Bolas) e Telwin: docs/CATALOGOS-BOLAS-BETA-TELWIN.md
+REM  CGVS (condicoes gerais): texto em src/data/cgvs-pt.js, rota /condicoes-gerais — ver PUBLICAR-CHECKLIST.txt
 REM
 REM  Incluido no ZIP: index.html, favicon.ico, assets/, images/ (catalogos), send-contact.php, .htaccess.
 REM
+REM  Melhorias aplicadas no codigo (mar 2026):
+REM  - SEO: BrowserRouter, .htaccess (SPA + www->canonico), sitemap sem hash, react-helmet-async (meta por rota)
 REM  Melhorias aplicadas no codigo (fev 2026):
 REM  - Logos marcas: Facom, Cleancraft, Aircraft, Schweisscraft, Holzkraft, Unicraft, Optimum em public/images/brands/; otimizacao inclui brands (max 400px)
 REM  - Mobile: header compacto (56px), hamburger/idioma/Entrar sem sobreposicao; home CTA 1 por linha
@@ -76,7 +81,7 @@ if exist "dist" (
 echo     Pasta dist limpa.
 
 echo.
-echo [5/7] A gerar build de producao...
+echo [5/7] A gerar build de producao (antes: merge privacy + rgpd para src/locales)...
 call npm run build
 if %errorlevel% neq 0 ( pause & exit /b 1 )
 
@@ -130,7 +135,8 @@ echo   2. Upload - navel-publicar.zip
 echo   3. Botao direito no ZIP - Extract
 echo   4. Eliminar o ZIP apos extrair
 echo.
-echo Ver DEPLOY.md para mais detalhes.
+echo Ver DEPLOY.md e PUBLICAR-CHECKLIST.txt para mais detalhes.
+echo Apos o upload, testar tambem: /privacidade /rgpd /condicoes-gerais (F5 = SPA OK).
 echo ========================================
 echo.
 pause

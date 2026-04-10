@@ -26,8 +26,9 @@ O que está otimizado na versão atual (performance, build, publicação).
 ## Publicação
 
 - **OPTIMIZAR.bat** — pipeline único: thumbnails → verificar imagens → otimizar imagens → build → `navel-publicar.zip`
+- **Build (`npm run build`):** hook **`prebuild`** executa **`merge-locales`** (injeta `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` em `src/locales`) antes do Vite — evita publicar `/privacidade` com chaves cruas tipo `privacy.introWho` se alguém editou só os JSON auxiliares e não fundiu.
 - Favicon gerado no build a partir do logo
-- HashRouter: sem reescritas no servidor (cPanel estático)
+- BrowserRouter: `.htaccess` com fallback para `index.html`, HTTPS e www → canónico
 
 ---
 
@@ -41,5 +42,5 @@ O que está otimizado na versão atual (performance, build, publicação).
 
 ## Manutenção
 
-- Novas páginas: atualizar `sitemap.xml` e `PageTitle.jsx` (ROUTE_TITLES)
+- Novas páginas: atualizar `sitemap.xml` e `PageTitle.jsx` (`ROUTE_CONFIG`)
 - Atualizar `og-image.png` (1200×630) se mudar identidade visual

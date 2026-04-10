@@ -10,11 +10,11 @@ header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
-$baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-  . '://' . ($_SERVER['HTTP_HOST'] ?? 'navel.pt') . '/';
+/** URL canónica do site (sem www), alinhada com .htaccess e meta tags */
+$siteOrigin = 'https://navel.pt';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-  header('Location: ' . $baseUrl . '?error=method#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?error=method');
   exit;
 }
 
@@ -36,7 +36,7 @@ if (file_exists($rateFile)) {
   });
 }
 if (count($attempts) >= $maxRequests) {
-  header('Location: ' . $baseUrl . '?error=limit#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?error=limit');
   exit;
 }
 $attempts[] = $now;
@@ -58,12 +58,12 @@ $subject = mb_substr(strip_tags($subject), 0, $maxSubject);
 $message = mb_substr(strip_tags($message), 0, $maxMessage);
 
 if (empty($name) || empty($email) || empty($subject) || empty($message)) {
-  header('Location: ' . $baseUrl . '?error=missing#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?error=missing');
   exit;
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-  header('Location: ' . $baseUrl . '?error=invalid#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?error=invalid');
   exit;
 }
 
@@ -91,8 +91,8 @@ try {
 }
 
 if ($sent) {
-  header('Location: ' . $baseUrl . '?sent=1#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?sent=1');
 } else {
-  header('Location: ' . $baseUrl . '?error=send#/contacto');
+  header('Location: ' . $siteOrigin . '/contacto?error=send');
 }
 exit;

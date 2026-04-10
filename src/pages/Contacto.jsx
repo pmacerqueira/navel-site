@@ -28,7 +28,7 @@ export default function Contacto() {
       setErrorType(err === 'limit' ? 'limit' : err === 'missing' ? 'missing' : err === 'invalid' ? 'invalid' : null)
     }
     if (params.get('sent') || params.get('error')) {
-      window.history.replaceState({}, '', window.location.origin + (window.location.pathname || '/') + (window.location.hash || '#/contacto'))
+      window.history.replaceState({}, '', `${window.location.origin}/contacto`)
     }
   }, [])
 

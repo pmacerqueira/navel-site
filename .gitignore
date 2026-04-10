@@ -21,6 +21,8 @@ backup-*.tar.gz
 .env.local
 .env.*.local
 Supabase e MySQL.txt
+# Chave anon só para keep-alive PHP (não commitar)
+public/keep-alive-supabase.secret.php
 docs/CREDENCIAIS.md
 
 # Logs

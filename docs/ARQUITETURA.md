@@ -8,15 +8,15 @@ Este documento define a arquitetura do `navel-site` e evita mistura de decisões
 
 `navel-site` é o website institucional da Navel:
 - frontend React (SPA estática em cPanel);
-- rotas com hash (`#/...`);
-- foco em conteúdo, SEO, formulários e área reservada.
+- rotas com URL limpa (`/contacto`, `/condicoes-gerais`, …) e fallback Apache em `.htaccess`;
+- foco em conteúdo, SEO, formulários, páginas legais (privacidade, RGPD, CGVS) e área reservada.
 
 ---
 
 ## 2) Stack e componentes
 
 - **Frontend:** React 18 + Vite
-- **Router:** HashRouter
+- **Router:** BrowserRouter (URLs limpas; ver secção 3)
 - **Deploy:** cPanel (ficheiros estáticos + `send-contact.php`)
 - **Área reservada / documentos:** Supabase (Auth + Storage)
 
@@ -24,8 +24,8 @@ Este documento define a arquitetura do `navel-site` e evita mistura de decisões
 
 ## 3) Decisões principais
 
-### HashRouter
-Escolhido para funcionamento previsível em cPanel sem depender de reescritas complexas.
+### BrowserRouter + `.htaccess`
+URLs limpas para SEO; o servidor entrega `index.html` para paths da SPA. Redirecção **www → navel.pt** e HTTPS no mesmo `.htaccess`.
 
 ### Supabase para área reservada
 Escolhido para simplificar auth/storage no contexto do site institucional.

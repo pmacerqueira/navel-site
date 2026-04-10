@@ -2,8 +2,13 @@
  * Shared constants for Navel website
  */
 
+import {
+  BOLAS_BETA_ACTION_2026_PDF,
+  BOLAS_BETA_WORKER_2026_PDF,
+} from './data/brands'
+
 /** Dashboard de manutenções AT_Manut (app em www.navel.pt/manut/) */
-export const MANUT_DASHBOARD_URL = 'https://www.navel.pt/manut/'
+export const MANUT_DASHBOARD_URL = 'https://navel.pt/manut/'
 
 /** URLs dos sites oficiais dos fabricantes */
 export const MILWAUKEE_URL = 'https://pt.milwaukeetool.eu/'
@@ -13,8 +18,16 @@ export const KAESER_URL = 'https://www.kaeser.com/'
 /** XTOOLS — fornecedor que representamos; links diretos dos folhetos (página: xtools.pt/pt/catalogos/folhetos) */
 const XTOOLS_BASE = 'https://xtools.pt/fileManager/catalogos'
 
-/** Marcas — fonte única em src/data/brands.js */
-export { BRAND_URLS, BRANDS_BY_CATEGORY, FOOTER_BRANDS, BROCHURES } from './data/brands'
+/** Marcas + PDFs Bolas Beta — fonte única em src/data/brands.js */
+export {
+  BRAND_URLS,
+  BRANDS_BY_CATEGORY,
+  FOOTER_BRANDS,
+  BROCHURES,
+  BOLAS_BETA_TABELA_2026_PDF,
+  BOLAS_BETA_ACTION_2026_PDF,
+  BOLAS_BETA_WORKER_2026_PDF,
+} from './data/brands'
 
 /** Informação legal da empresa */
 export const COMPANY_NIF = 'PT 512012962'
@@ -119,10 +132,18 @@ export const HOME_CAMPAIGNS = [
   {
     brandKey: 'news.brandBeta',
     titleKey: 'home.campaignBetaActionTitle',
-    src: '/images/campaigns/beta-action-2025.png',
+    src: '/images/catalogos/beta/beta-action-2026.jpg',
     brandColor: '#ed6b21',
-    url: '/catalogos/campanhas/beta-action-2025.pdf',
+    url: BOLAS_BETA_ACTION_2026_PDF,
     urgencyKey: 'home.campaignUrgencyFebEnd',
+  },
+  {
+    brandKey: 'news.brandBeta',
+    titleKey: 'home.campaignBetaWorkerTitle',
+    src: '/images/catalogos/beta/beta-worker-2026.jpg',
+    brandColor: '#ed6b21',
+    url: BOLAS_BETA_WORKER_2026_PDF,
+    urgencyKey: 'home.campaignUrgencyBetaWorker',
   },
   {
     brandKey: 'news.brandTelwin',
@@ -177,7 +198,8 @@ export const HERO_SLIDES = [
   { src: '/images/brands/kaeser.png', altKey: 'hero.slideKaeser', href: KAESER_URL, backgroundImage: '/images/kaeser-bg.png' },
   { src: '/images/campaigns/slide-milwaukee_HDN_Q1.jpg', altKey: 'news.brochureMilwaukeeHDNQ1', href: MILWAUKEE_DOWNLOADS_URL },
   { src: '/images/campaigns/solucoes-industria-2025-26.png', altKey: 'home.campaignSolucoesTitle', href: '/catalogos/campanhas/solucoes-industria-2025-26.pdf' },
-  { src: '/images/campaigns/beta-action-2025.png', altKey: 'home.campaignBetaActionTitle', href: '/catalogos/campanhas/beta-action-2025.pdf' },
+  { src: '/images/catalogos/beta/beta-action-2026.jpg', altKey: 'home.campaignBetaActionTitle', href: BOLAS_BETA_ACTION_2026_PDF },
+  { src: '/images/catalogos/beta/beta-worker-2026.jpg', altKey: 'home.campaignBetaWorkerTitle', href: BOLAS_BETA_WORKER_2026_PDF },
   { src: '/images/campaigns/magazine-telwin-2026.png', altKey: 'home.campaignTelwinMagazineTitle', href: '/catalogos/telwin/magazine-telwin-2026.pdf' },
   { src: '/images/campaigns/promo-fevereiro-2026.png', altKey: 'home.campaignPromoFebTitle', href: '/catalogos/campanhas/promo-fevereiro-2026.pdf' },
   { src: '/images/catalogos/xtools-folhetos/iluminacao-unicraft.jpg', altKey: 'home.xtoolsFolhetoIluminacaoUnicraft', href: `${XTOOLS_BASE}/pdf_pt_22.pdf` },

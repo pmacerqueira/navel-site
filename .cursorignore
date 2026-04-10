@@ -1,0 +1,14 @@
+# Reduz indexacao; *.log NAO ignorar — diagnostico IA
+node_modules/
+dist/
+.vite/
+public/catalogos/
+public/images/catalogos/
+*.tar.gz
+backup-*.tar.gz
+.env
+.env.local
+.env.*.local
+public/keep-alive-supabase.secret.php
+docs/CREDENCIAIS.md
+Supabase e MySQL.txt

@@ -31,7 +31,7 @@ export default function Register() {
     }
     setLoading(true)
     try {
-      const redirectUrl = window.location.origin + (window.location.hash || '#/login')
+      const redirectUrl = `${window.location.origin}/login`
       const { error: err } = await supabase.auth.signUp({
         email: email.trim(),
         password,

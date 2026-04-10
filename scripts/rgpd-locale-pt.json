@@ -1,0 +1,19 @@
+{
+  "title": "RGPD",
+  "lead": "Compromisso com o Regulamento Geral sobre a Proteção de Dados (RGPD) e com os direitos das pessoas singulares sobre os seus dados pessoais.",
+  "intro": "Os seus dados pessoais são importantes para nós. Procuramos tratá-los de forma lícita, leal e transparente, no âmbito do website navel.pt e dos contactos que estabelece connosco.",
+  "rightsTitle": "Direitos dos titulares dos dados",
+  "rightsIntro": "Enquanto titular dos dados, pode exercer, nos termos e limites legais do RGPD, os seguintes direitos:",
+  "rightAccess": "Direito de acesso",
+  "rightRectification": "Direito de retificação",
+  "rightErasure": "Direito ao apagamento («direito a ser esquecido»)",
+  "rightRestriction": "Direito à limitação do tratamento",
+  "rightObject": "Direito de oposição",
+  "rightPortability": "Direito à portabilidade dos dados (quando aplicável)",
+  "howTitle": "Como pode exercer os seus direitos",
+  "howText": "Para exercer qualquer um destes direitos, contacte-nos por escrito (e-mail indicado na Política de Privacidade ou formulário de contacto), referindo com clareza o pedido. Para podermos tratar o seu pedido de forma segura, poderemos solicitar dados para confirmar a sua identidade. Respondemos sem demora injustificada, nos termos legais — em regra no prazo máximo de 30 dias — salvo impedimento legal ou complexidade justificada do pedido.",
+  "privacyLinkText": "Na Política de Privacidade encontram-se pormenores sobre tratamentos, finalidades, conservação dos dados, encargados de tratamento, transferências internacionais, cookies e o contacto da empresa.",
+  "ctaTitle": "Enviar um pedido",
+  "ctaText": "Pode utilizar o formulário de contacto do site, indicando no assunto ou na mensagem que o pedido diz respeito à proteção de dados (por exemplo: acesso, retificação ou apagamento). Também pode escrever diretamente para os endereços de e-mail indicados na Política de Privacidade.",
+  "ctaButton": "Ir para contacto"
+}

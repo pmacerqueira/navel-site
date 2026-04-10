@@ -19,6 +19,8 @@ const Servicos = lazy(() => import('./pages/Servicos'))
 const Catalogos = lazy(() => import('./pages/Catalogos'))
 const Contacto = lazy(() => import('./pages/Contacto'))
 const Privacidade = lazy(() => import('./pages/Privacidade'))
+const Rgpd = lazy(() => import('./pages/Rgpd'))
+const CondicoesGerais = lazy(() => import('./pages/CondicoesGerais'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const AguardarAprovacao = lazy(() => import('./pages/AguardarAprovacao'))
@@ -51,6 +53,8 @@ function App() {
           <Route path="/novidades" element={<Navigate to="/catalogos" replace />} />
           <Route path="/contacto" element={<Contacto />} />
           <Route path="/privacidade" element={<Privacidade />} />
+          <Route path="/rgpd" element={<Rgpd />} />
+          <Route path="/condicoes-gerais" element={<CondicoesGerais />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registar" element={<Register />} />
           <Route path="/aguardar-aprovacao" element={<AguardarAprovacao />} />

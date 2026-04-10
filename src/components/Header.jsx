@@ -15,7 +15,7 @@ export default function Header() {
     <header className="header">
       <div className="container header__inner">
         <Link to="/" className="header__logo" onClick={() => setMenuOpen(false)}>
-          <img src="/images/logo.png" alt="Navel - Açores, Lda." className="header__logo-img" width="140" height="44" fetchpriority="high" decoding="async" />
+          <img src="/images/NAVEL_LOGO.jpg" alt="José Gonçalves Cerqueira (NAVEL-AÇORES), Lda." className="header__logo-img" width="140" height="44" fetchpriority="high" decoding="async" />
         </Link>
 
         <div className="header__right">

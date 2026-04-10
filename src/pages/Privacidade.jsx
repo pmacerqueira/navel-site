@@ -1,4 +1,15 @@
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+
+function Block({ titleKey, bodyKey }) {
+  const { t } = useTranslation()
+  return (
+    <div className="privacy-content__block">
+      <h3>{t(titleKey)}</h3>
+      <p>{t(bodyKey)}</p>
+    </div>
+  )
+}
 
 export default function Privacidade() {
   const { t } = useTranslation()
@@ -14,20 +25,26 @@ export default function Privacidade() {
 
       <section className="section privacy-content">
         <div className="container container--narrow">
-          <div className="privacy-content__block">
-            <h3>{t('privacy.controller')}</h3>
-            <p>{t('privacy.controllerText')}</p>
-          </div>
-          <div className="privacy-content__block">
-            <h3>{t('privacy.data')}</h3>
-            <p>{t('privacy.dataText')}</p>
-          </div>
-          <div className="privacy-content__block">
-            <h3>{t('privacy.purpose')}</h3>
-            <p>{t('privacy.purposeText')}</p>
-          </div>
+          <Block titleKey="privacy.introWho" bodyKey="privacy.introWhoText" />
+          <Block titleKey="privacy.whyPolicy" bodyKey="privacy.whyPolicyText" />
+          <Block titleKey="privacy.scope" bodyKey="privacy.scopeText" />
+          <Block titleKey="privacy.definitions" bodyKey="privacy.definitionsText" />
+          <Block titleKey="privacy.controller" bodyKey="privacy.controllerText" />
+          <Block titleKey="privacy.dataProtectionContact" bodyKey="privacy.dataProtectionContactText" />
+          <Block titleKey="privacy.data" bodyKey="privacy.dataText" />
+          <Block titleKey="privacy.collection" bodyKey="privacy.collectionText" />
+          <Block titleKey="privacy.recipients" bodyKey="privacy.recipientsText" />
+          <Block titleKey="privacy.purpose" bodyKey="privacy.purposeText" />
+          <Block titleKey="privacy.retention" bodyKey="privacy.retentionText" />
+          <Block titleKey="privacy.marketing" bodyKey="privacy.marketingText" />
+          <Block titleKey="privacy.rights" bodyKey="privacy.rightsText" />
+          <Block titleKey="privacy.complaints" bodyKey="privacy.complaintsText" />
+          <Block titleKey="privacy.security" bodyKey="privacy.securityText" />
+          <Block titleKey="privacy.transfers" bodyKey="privacy.transfersText" />
+
           <div className="privacy-content__block">
             <h3>{t('privacy.cookies')}</h3>
+            <p>{t('privacy.cookiesIntro')}</p>
             <p>{t('privacy.cookiesText')}</p>
             <h4 className="privacy-content__subtitle">{t('privacy.cookieRegisterTitle')}</h4>
             <p className="text-muted">{t('privacy.cookieRegisterLead')}</p>
@@ -75,14 +92,19 @@ export default function Privacidade() {
               </table>
             </div>
           </div>
-          <div className="privacy-content__block">
-            <h3>{t('privacy.rights')}</h3>
-            <p>{t('privacy.rightsText')}</p>
+
+          <Block titleKey="privacy.changes" bodyKey="privacy.changesText" />
+          <div className="privacy-content__block privacy-content__block--meta">
+            <p className="text-muted privacy-content__updated">{t('privacy.lastUpdated')}</p>
           </div>
           <div className="privacy-content__block">
-            <h3>{t('privacy.contact')}</h3>
-            <p>{t('privacy.contactText')}</p>
+            <p className="text-muted">
+              <Link to="/rgpd">{t('privacy.rgpdCrossLink')}</Link>
+              {' — '}
+              {t('privacy.rgpdCrossLead')}
+            </p>
           </div>
+          <Block titleKey="privacy.contact" bodyKey="privacy.contactText" />
         </div>
       </section>
     </>

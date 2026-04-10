@@ -13,7 +13,7 @@ const BASE = join(__dirname, '..', 'public', 'images', 'catalogos')
 
 const REQUIRED = {
   facom: ['catalogo-facom-2025.webp', 'catalogo-jetline.webp', 'catalogo-roll-workshop.webp', 'catalogo-facom-novidades.webp', 'catalogo-facom-matrix.webp'],
-  beta: ['catalogo-geral-2025.webp', 'beta-action-2025.webp', 'catalogo-c45pro-2-0.webp', 'catalogo-rsc50-2-0.webp'],
+  beta: ['beta-tabela-precos-2026.jpg', 'beta-action-2026.jpg', 'beta-worker-2026.jpg', 'catalogo-c45pro-2-0.webp', 'catalogo-rsc50-2-0.webp'],
   'xtools-folhetos': ['iluminacao-unicraft.jpg', 'folheto-aircraft.jpg', 'folheto-optimum.png', 'folheto-metallkraft.png'],
   'xtools-resumo': ['aircraft-resumo.jpg', 'optimum-resumo.jpg', 'metallkraft-resumo.jpg', 'unicraft-resumo.jpg', 'holzkraft-resumo.jpg', 'schweisskraft-resumo.jpg', 'cleancraft-resumo.jpg'],
   xtools: ['aircraft.svg', 'optimum.svg', 'metallkraft.svg', 'unicraft.svg', 'holzkraft.svg', 'schweisskraft.svg', 'cleancraft.svg'],

@@ -16,6 +16,9 @@
 - `CHANGELOG.md` — histórico de alterações
 
 ## Especializado
+- **i18n — Política de privacidade e RGPD:** o texto longo da página `/privacidade` e blocos `rgpd` não deve ser editado só no excerto de `src/locales/*.json`. Fonte canónica: **`scripts/privacy-locale-{pt,en,es}.json`** e **`scripts/rgpd-locale-{pt,en,es}.json`**. Em cada **`npm run build`** (e **`OPTIMIZAR.bat`**) corre **`prebuild`** → `npm run merge-locales`, que injeta esses JSON nas chaves `privacy` e `rgpd`. Manual: `node scripts/merge-privacy-locales.js` e `node scripts/merge-rgpd-locales.js`. Se isso falhar, em produção podem aparecer chaves cruas (ex.: `privacy.introWho`). Ver `README.md` → “Onde editar”.
+- **Condições gerais de venda (CGVS):** rota `https://navel.pt/condicoes-gerais` — conteúdo em `src/data/cgvs-pt.js` (IMP.01); UI `src/pages/CondicoesGerais.jsx`; após alterar texto legal, rever `public/sitemap.xml`, i18n `cgvs.*` e deploy.
+- `docs/CATALOGOS-BOLAS-BETA-TELWIN.md` — ritual de actualização: cartões Beta (PDFs/capas Bolas) e Telwin (PDF local + capa)
 - `docs/SUPABASE.md` — setup e operação Supabase
 - `docs/SEO.md` — otimização SEO
 - `docs/RESPONSIVIDADE.md` — padrões responsive

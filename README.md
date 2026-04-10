@@ -1,6 +1,6 @@
-# Navel - Açores | Website
+# Website institucional — José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.
 
-Site institucional da **Navel - Açores, Lda.** — máquinas, ferramentas e equipamentos industriais em Ponta Delgada e Pico da Pedra, Açores.
+Site institucional da **José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.** — máquinas, ferramentas e equipamentos industriais em Ponta Delgada e Pico da Pedra, Açores.
 
 **Estado:** Versão próxima da final. React 18 + Vite 5, PT/EN/ES, responsivo, SEO otimizado (meta tags, Schema.org, sitemap), publicação via cPanel.
 
@@ -16,7 +16,7 @@ Site institucional da **Navel - Açores, Lda.** — máquinas, ferramentas e equ
 | `npm run preview` | Pré-visualizar o build |
 | **`OPTIMIZAR.bat`** | Pipeline completo: thumbnails, otimizar imagens, build, ZIP para cPanel |
 
-Rotas em hash: `#/sobre`, `#/produtos`, `#/marcas`, `#/contacto`, etc.
+Rotas com URL limpa: `/sobre`, `/produtos`, `/marcas`, `/contacto`, etc. (BrowserRouter + `.htaccess` no servidor).
 
 ---
 
@@ -31,8 +31,8 @@ Rotas em hash: `#/sobre`, `#/produtos`, `#/marcas`, `#/contacto`, etc.
 ## Onde editar
 
 - **Marcas:** `src/data/brands.js` (BRAND_DEFINITIONS, BRANDS_BY_CATEGORY_IDS) + logos em `public/images/brands/`
-- **Textos / idiomas:** `src/locales/pt.json`, `en.json`, `es.json`
-- **SEO (título, description, keywords):** `index.html` + `src/components/PageTitle.jsx`
+- **Textos / idiomas:** `src/locales/pt.json`, `en.json`, `es.json` — em cada **`npm run build`** corre automaticamente `merge-locales` (injeta `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` nas chaves `privacy` e `rgpd`). Para editar a política de privacidade longa, use os ficheiros em **`scripts/privacy-locale-{pt,en,es}.json`** (não só o excerto em `src/locales`).
+- **SEO:** `index.html` (fallback) + `src/components/PageTitle.jsx` (react-helmet-async) + `src/locales/*.json` (`seo.homeDescription`, `seo.notFoundDescription` e `lead` das páginas)
 
 Imagens: ver `public/images/README.md`.
 
@@ -59,6 +59,7 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 - `DEPLOY.md` — processo de publicação.
 
 ### Operação
+- `docs/CATALOGOS-BOLAS-BETA-TELWIN.md` — actualizar cartões Beta (Bolas) e Telwin
 - `docs/SETUP.md`
 - `docs/TROUBLESHOOTING.md`
 - `docs/CREDENCIAIS-SEGURANCA.md`
@@ -82,4 +83,4 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 
 ---
 
-*Projeto privado — Navel - Açores, Lda.*
+*Projecto privado — José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.*

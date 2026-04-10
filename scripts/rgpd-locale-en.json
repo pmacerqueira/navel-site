@@ -1,0 +1,19 @@
+{
+  "title": "GDPR",
+  "lead": "Our commitment to the General Data Protection Regulation (GDPR) and to data subjects’ rights regarding personal data.",
+  "intro": "Your personal data matters to us. We aim to process it lawfully, fairly and transparently in connection with the navel.pt website and your interactions with us.",
+  "rightsTitle": "Your rights as a data subject",
+  "rightsIntro": "As a data subject you may exercise the following rights under the GDPR, within applicable legal limits:",
+  "rightAccess": "Right of access",
+  "rightRectification": "Right to rectification",
+  "rightErasure": "Right to erasure (“right to be forgotten”)",
+  "rightRestriction": "Right to restriction of processing",
+  "rightObject": "Right to object",
+  "rightPortability": "Right to data portability (where applicable)",
+  "howTitle": "How to exercise your rights",
+  "howText": "To exercise any of these rights, contact us in writing (email given in the Privacy Policy or the contact form), stating your request clearly. To handle your request securely, we may ask you to confirm your identity. We respond without undue delay as required by law — typically within 30 days — unless prevented by law or where the request is unusually complex.",
+  "privacyLinkText": "The Privacy Policy explains in detail what we process, for what purposes, retention, processors, international transfers, cookies and how to reach us.",
+  "ctaTitle": "Submit a request",
+  "ctaText": "You may use the site contact form and state in the subject or message that the request concerns data protection (e.g. access, rectification or erasure). You can also write directly to the email addresses listed in the Privacy Policy.",
+  "ctaButton": "Go to contact"
+}

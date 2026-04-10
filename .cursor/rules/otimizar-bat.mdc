@@ -5,6 +5,9 @@ alwaysApply: true
 
 # Atualizar OPTIMIZAR.bat
 
+> **Ambiente:** PC de desenvolvimento com RAM/CPU amplos (ex. 32 GB RAM). Builds e scripts podem correr sem auto-limitação por memória.
+
+
 Quando o utilizador pedir **otimizações**, **preparação para publicação** ou **publicação no cPanel**, deves:
 
 1. Executar as tarefas solicitadas (build, verificação de traduções, links, documentação, etc.)
@@ -18,3 +21,6 @@ O `OPTIMIZAR.bat` é o pipeline único que o utilizador executa para ter o site 
 - Não assumir aprendizagem permanente automática de um modelo para outro.
 - Em cada nova conversa, iniciar com resumo curto: objetivo, estado atual, risco principal, ficheiros canónicos e próxima ação.
 - Manter continuidade através de código + `.cursor/rules` + `CHANGELOG.md` + `docs/INDEX.md`.
+- **Catálogos Beta (Bolas) e Telwin:** checklist em `docs/CATALOGOS-BOLAS-BETA-TELWIN.md` (thumbs, PDFs, i18n).
+- **CGVS (condições gerais):** texto em `src/data/cgvs-pt.js`, rota `/condicoes-gerais`; após alterações legais, atualizar `public/sitemap.xml`, locales `cgvs.*` se necessário e checklist em `PUBLICAR-CHECKLIST.txt`.
+- **Privacidade / RGPD em i18n:** fonte em `scripts/privacy-locale-*.json` e `scripts/rgpd-locale-*.json`; cada `npm run build` corre `prebuild` → `merge-locales`. Ver `docs/INDEX.md` e `README.md`.

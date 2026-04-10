@@ -589,6 +589,48 @@
   color: var(--color-text-muted);
   line-height: 1.6;
 }
+.privacy-content__block--meta {
+  margin-bottom: var(--space-md);
+}
+.privacy-content__updated {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
+/* CGVS (condições gerais) */
+.page-hero__legal {
+  margin-top: var(--space-md);
+  max-width: 42rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.cgvs-section__title {
+  font-size: 1.05rem;
+  margin-bottom: var(--space-sm);
+  color: var(--color-primary-light);
+}
+.cgvs-section .cgvs-section__sublist {
+  list-style: none;
+  margin: var(--space-md) 0;
+  padding-left: 0;
+}
+.cgvs-section__sublist li {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin-bottom: var(--space-sm);
+}
+
+.rgpd-rights-list {
+  margin: var(--space-sm) 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+.rgpd-rights-list li {
+  margin-bottom: var(--space-xs);
+}
 .privacy-content__subtitle {
   font-size: 0.95rem;
   font-weight: 600;

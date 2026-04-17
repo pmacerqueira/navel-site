@@ -30,6 +30,48 @@ O ficheiro `docs/supabase-setup.sql` inclui:
 - Trigger que cria perfil automaticamente e **aprova logo o comercial@navel.pt**
 - Políticas RLS
 
+### Registo mostra "Database error saving new user"
+
+Esta mensagem vem do **Auth** quando o trigger `on_auth_user_created` falha ao inserir na tabela `public.profiles` (não é um bug do formulário do site).
+
+1. No Supabase: **Logs** → **Postgres** ou **Auth** e procure a linha do erro. Se aparecer **`relation "profiles" does not exist`**, o passo 3 (executar `docs/supabase-setup.sql` neste projeto) ainda não foi aplicado ou falhou a meio — volte a correr o ficheiro completo no **SQL Editor**. Outros exemplos: `permission denied for table profiles`, erros de sintaxe no trigger.
+2. No **SQL Editor**, execute **`docs/supabase-fix-signup-database-error.sql`** (recria `public.handle_new_user()` com `SECURITY DEFINER` e `SET search_path = public`, e volta a ligar o trigger).
+3. Confirme que a tabela `profiles` existe e que o SQL de setup foi aplicado ao projeto certo.
+
+Se o email já existir em **Authentication → Users**, apague o utilizador de teste ou use outro email antes de voltar a registar.
+
+### Admin: lista de pendentes vazia (mas há linhas em `profiles`)
+
+As políticas antigas consultavam `auth.users` dentro do RLS; com o cliente autenticado isso não devolve o email do admin, por isso a página **Admin** não mostrava ninguém. Execute **`docs/supabase-fix-admin-pending-list-rls.sql`** no SQL Editor (ou volte a aplicar o bloco RLS de `docs/supabase-setup.sql` actualizado).
+
+### Erro ao ler perfil: `permission denied for table users`
+
+Uma política em **`public.profiles`** (quase sempre **«Admin can read all»** antiga) ainda faz **subconsulta a `auth.users`**. O cliente autenticado **não pode** ler essa tabela, e o Postgres **falha o `SELECT` em `profiles` por completo** — nem o utilizador consegue ler a própria linha.
+
+Execute no **SQL Editor**: **`docs/supabase-fix-profiles-rls-permission-denied-users.sql`** (recria políticas de admin com JWT e a política «ler o próprio perfil», e actualiza `is_admin_documentos()` sem `auth.users`).
+
+### Aprovado no Table Editor mas o site continua a pedir aprovação
+
+1. **Mesmo projecto Supabase que o site** — o `navel.pt` usa as chaves **gravadas no build** (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` no `.env` da máquina onde corres `npm run build`). Se editares outro projecto no dashboard, o site não vê essa alteração. Confirma o **Project URL** em **Settings → API** com o que está no build.
+
+2. **`profiles.id` = `auth.users.id`** — a linha que editaste tem de ser a do **mesmo UUID** que o utilizador em **Authentication → Users**. No **SQL Editor**:
+
+```sql
+SELECT au.id AS auth_user_id, au.email AS auth_email,
+       p.id AS profile_id, p.email AS profile_email, p.approved
+FROM auth.users au
+LEFT JOIN public.profiles p ON p.id = au.id
+WHERE au.email ILIKE 'pmedeiros@navel.pt';
+```
+
+Se `profile_id` for `NULL`, falta linha em `profiles` (ou `id` não coincide). Se `approved` for `false` nesta linha, o site está a ler o estado correcto.
+
+3. Depois de corrigir na BD, no site usa **«Atualizar estado»** na página de espera ou volta a entrar.
+
+### Email ao admin quando há pedido pendente
+
+O Auth **só** envia confirmação ao **novo** utilizador; **não** envia aviso ao `comercial@navel.pt`. Com sessão de admin, o site mostra um **contador no link “Admin”** no cabeçalho quando há pedidos pendentes (não depende do contrato Microsoft). Para **email** opcional, vê **`docs/supabase-notify-admin-pending-user.md`** (webhook + Power Automate ou alternativas).
+
 ## 4. Ativar verificação de email
 
 1. **Authentication** → **Providers** → **Email**
@@ -48,6 +90,8 @@ Em **Authentication** → **URL Configuration**:
 ## 5. Bucket de documentos
 
 O ficheiro `docs/supabase-setup.sql` já inclui a criação do bucket `documentos` e as políticas de acesso. Execute o SQL completo (passo 3) e o bucket será criado automaticamente.
+
+**Portal de documentos (área reservada):** para que utilizadores autenticados possam **carregar** ficheiros e apenas o admin (`comercial@navel.pt`, via `is_admin_documentos()`) possa **atualizar/apagar**, execute no SQL Editor também **`docs/supabase-storage-portal-policies.sql`** depois de o bucket `documentos` existir (ou confirme que o `supabase-setup.sql` que aplicou já incorpora essas políticas).
 
 **Alternativa:** Se o bucket não existir, o admin pode clicar em **Criar bucket** na área reservada (o Supabase pode exigir que o bucket seja criado via SQL/dashboard consoante as permissões).
 

@@ -13,6 +13,8 @@ Como publicar o site da Navel (navel.pt) no cPanel.
 
 ## 1. Preparar o build
 
+**Área reservada + documentos PHP + OneDrive:** seguir **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`** — **sempre** `npm run build` **antes** de `npm run make-zip` (o ZIP sai de `dist/`, onde o Vite copia `public/`).
+
 Executar **`OPTIMIZAR.bat`** na pasta do projeto. O script:
 
 1. Descarrega thumbnails (Facom, Beta, XTOOLS) para `public/images/catalogos/`

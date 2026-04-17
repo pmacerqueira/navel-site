@@ -23,6 +23,7 @@ backup-*.tar.gz
 Supabase e MySQL.txt
 # Chave anon só para keep-alive PHP (não commitar)
 public/keep-alive-supabase.secret.php
+public/documentos-api-config.php
 docs/CREDENCIAIS.md
 
 # Logs

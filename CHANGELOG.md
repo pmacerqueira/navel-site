@@ -1,5 +1,11 @@
 # Changelog — navel-site
 
+## [0.2.3] — 2026-04-17
+
+### Documentação operacional (área reservada + OneDrive)
+- Novo **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`**: checklist **build → make-zip**, deploy cPanel (apagar `assets/`), PHP/`dist`, JWT, OPcache, tabela de erros OneDrive/i18n, notas para agentes.
+- Actualizados **`docs/INDEX.md`**, **`docs/TROUBLESHOOTING.md`** (§6–7), **`DEPLOY.md`**, **`docs/CPANEL-DOCUMENTOS.md`**, **`docs/ONEDRIVE.md`** (cron `run_until_done`, API `onedrive_sync_preview` / `onedrive_sync_tick`).
+
 ## [0.2.2] — 2026-03-29
 
 ### Privacidade / i18n

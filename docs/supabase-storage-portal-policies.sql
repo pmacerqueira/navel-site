@@ -1,6 +1,14 @@
 -- =============================================================================
--- Navel — Correção RLS Storage (portal documentos)
--- Executar no SQL Editor do Supabase: https://supabase.com/dashboard
+-- Navel — Storage «documentos»: portal (upload para todos, só admin apaga)
+-- =============================================================================
+-- Executar no SQL Editor do projecto Supabase (após bucket documentos existir).
+--
+-- Comportamento:
+--   - Qualquer utilizador autenticado: SELECT (listar / download) e INSERT (upload)
+--   - Apenas comercial@navel.pt (JWT): UPDATE (substituir) e DELETE
+--
+-- O site usa upsert só para admin; utilizadores normais fazem upload sem
+-- sobrescrever (cliente com upsert: false).
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.is_admin_documentos()

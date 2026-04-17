@@ -5,9 +5,13 @@ import { supabase } from '../lib/supabase'
 
 export default function Admin() {
   const { t } = useTranslation()
-  const { user, signOut } = useAuth()
+  const { user, signOut, refreshAdminPendingCount } = useAuth()
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    refreshAdminPendingCount()
+  }, [refreshAdminPendingCount])
 
   useEffect(() => {
     if (!supabase) {
@@ -26,7 +30,10 @@ export default function Admin() {
     if (!supabase) return
     try {
       const { error } = await supabase.from('profiles').update({ approved: true }).eq('id', id)
-      if (!error) setPending((p) => p.filter((u) => u.id !== id))
+      if (!error) {
+        setPending((p) => p.filter((u) => u.id !== id))
+        refreshAdminPendingCount()
+      }
     } catch {
       /* erro silencioso — utilizador permanece na lista */
     }

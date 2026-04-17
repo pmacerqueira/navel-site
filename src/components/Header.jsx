@@ -9,7 +9,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
   const { t } = useTranslation()
-  const { isApproved, isAdmin } = useAuth()
+  const { isApproved, isAdmin, adminPendingCount } = useAuth()
 
   return (
     <header className="header">
@@ -64,10 +64,19 @@ export default function Header() {
                 <li>
                   <Link
                     to="/admin"
-                    className={`header__link ${location.pathname === '/admin' ? 'header__link--active' : ''}`}
+                    className={`header__link ${adminPendingCount > 0 ? 'header__link--admin-nav' : ''} ${location.pathname === '/admin' ? 'header__link--active' : ''}`}
                     onClick={() => setMenuOpen(false)}
+                    title={adminPendingCount > 0 ? t('auth.adminPendingNavTitle', { count: adminPendingCount }) : undefined}
                   >
-                    {t('nav.admin')}
+                    <span className="header__admin-nav-label">{t('nav.admin')}</span>
+                    {adminPendingCount > 0 ? (
+                      <span className="header__admin-badge" aria-hidden="true">
+                        {adminPendingCount > 99 ? '99+' : adminPendingCount}
+                      </span>
+                    ) : null}
+                    {adminPendingCount > 0 ? (
+                      <span className="visually-hidden">{t('auth.adminPendingNavTitle', { count: adminPendingCount })}</span>
+                    ) : null}
                   </Link>
                 </li>
               )}

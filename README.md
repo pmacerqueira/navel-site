@@ -22,9 +22,10 @@ Rotas com URL limpa: `/sobre`, `/produtos`, `/marcas`, `/contacto`, etc. (Browse
 
 ## Publicação (cPanel)
 
-1. Executar **`OPTIMIZAR.bat`** → gera `navel-publicar.zip`
+1. Executar **`OPTIMIZAR.bat`** (ou `npm run build` → `npm run make-zip`) → gera `navel-publicar.zip` a partir de **`dist/`**
 2. No cPanel: File Manager → Upload do ZIP → Extract → Apagar o ZIP
 3. Ver **`DEPLOY.md`** para pormenores
+4. **Área reservada / documentos PHP / OneDrive:** **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`** (ordem build→zip, apagar `assets/`, erros frequentes)
 
 ---
 

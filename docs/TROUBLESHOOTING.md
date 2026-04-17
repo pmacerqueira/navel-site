@@ -78,5 +78,30 @@ Links internos ou refresh (F5) em `/contacto`, `/produtos`, etc. devolvem 404 em
 ## 5) Segurança de credenciais
 
 - Não guardar passwords/tokens reais em docs de projeto.
-- Usar `.env` local e manter secrets fora do repositório.
+
+---
+
+## 6) Área reservada, `documentos-api.php`, OneDrive (erros “de deploy”)
+
+**Documento canónico:** `docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md` (ler primeiro).
+
+| Sintoma | Causa frequente | O que fazer |
+|--------|-------------------|-------------|
+| UI antiga (faltam botões / fluxo OneDrive) | ZIP antigo ou **`assets/` não apagada** antes do extract | `npm run build` → `npm run make-zip`; no cPanel **apagar `public_html/assets/`** → extrair ZIP. |
+| PHP “não muda” no servidor | Build não corrido após editar `public/*.php` | O ZIP vem de **`dist/`**; o Vite copia `public/` no **build**. Ordem: **build → make-zip**. |
+| `onedrive_sync_failed` / timeout | Proxy ou pedido longo | Usar **sync por ticks** na UI ou **cron** no servidor; ver `docs/ONEDRIVE.md`. |
+| `0 ficheiros` com pastas OK | Delta sem `downloadUrl` | Já tratado no servidor com `/content`; se persistir, ver `.navel-onedrive-sync.log`. |
+| Chaves i18n `{{x}}` não interpoladas | Sintaxe errada nos JSON | Usar **`{{placeholder}}`** em `src/locales/*.json`. |
+| `documentos-api-config.php` com erro | Falta `<?php` ou JWT errado | Secret = JWT Secret Supabase, não anon key. |
+| F5 desloga ao refresh | Lógica extra de `signOut` em reload | Não forçar logout em `navigation.type === 'reload'`. |
+
+---
+
+## 7) Publicação não reflete mudanças (área reservada + PHP)
+
+Além de `docs/TROUBLESHOOTING.md` §3:
+
+1. Confirmar **`npm run build`** (gera `dist/` com `public/` copiado).
+2. Confirmar **`npm run make-zip`** (empacota **`dist/`**).
+3. No servidor: substituir **PHP** na raiz do site e limpar **`assets/`** como acima.
 

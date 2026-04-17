@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { isProfileApproved } from '../lib/profileApproved'
 import { ADMIN_EMAIL } from '../constants'
 
 export default function Login() {
@@ -24,7 +25,7 @@ export default function Login() {
     setLoading(true)
     try {
       const { data, error: err } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
       })
       if (err) {
@@ -32,13 +33,32 @@ export default function Login() {
         return
       }
       if (data?.user) {
-        const isAdminUser = data.user.email === ADMIN_EMAIL
-        const { data: profile } = await supabase.from('profiles').select('approved').eq('id', data.user.id).single()
-        if (isAdminUser || profile?.approved) {
+        const u = data.user
+        const isAdminUser = u.email === ADMIN_EMAIL
+        // Garantir sessão local antes do REST; por vezes o 1.º SELECT a profiles corre sem JWT aplicado.
+        await supabase.auth.getSession()
+        let approvedOk = isAdminUser
+        if (!isAdminUser) {
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const { data: profileRow } = await supabase
+              .from('profiles')
+              .select('approved')
+              .eq('id', u.id)
+              .maybeSingle()
+            if (isProfileApproved(profileRow?.approved)) {
+              approvedOk = true
+              break
+            }
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 400))
+          }
+        }
+        if (approvedOk) {
           navigate(from, { replace: true })
         } else {
           navigate('/aguardar-aprovacao', { replace: true })
         }
+      } else {
+        setError(t('auth.loginFailedTryAgain'))
       }
     } catch (err) {
       setError(err?.message || t('auth.loginLead'))

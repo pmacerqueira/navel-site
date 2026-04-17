@@ -6,10 +6,10 @@ import { useAuth } from '../contexts/AuthContext'
 import AuthRouteLoader from './AuthRouteLoader'
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading, isApproved, isPending } = useAuth()
+  const { user, loading, profileLoading, isApproved, isPending } = useAuth()
   const location = useLocation()
 
-  if (loading) return <AuthRouteLoader />
+  if (loading || profileLoading) return <AuthRouteLoader />
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />

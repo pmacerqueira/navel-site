@@ -9,6 +9,7 @@
 ## Essencial
 - `README.md` — comandos e visão geral
 - `DEPLOY.md` — publicação cPanel
+- **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`** — **checklist obrigatória** (build→zip, PHP, OneDrive, i18n, erros a evitar)
 - `docs/SETUP.md` — setup local completo
 - `docs/TROUBLESHOOTING.md` — resolução de problemas
 - `docs/ARQUITETURA.md` — arquitetura e separação com AT_Manut

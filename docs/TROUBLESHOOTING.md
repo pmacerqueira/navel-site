@@ -56,10 +56,21 @@ O Supabase conta **inactividade** na API/BD (tipicamente vários dias sem tráfe
 ### Sintoma
 Site publicado mantém versão antiga.
 
-### Ações
+### Ações (fluxo automatizado, preferido)
+1. `npm run build` (sem rebuild, o `dist/` continua com a versão antiga).
+2. `npm run deploy:dry` — ver se algum ficheiro é listado. Se mostrar
+   `0 ficheiros a enviar`, a tua cache SHA-1 acha que está tudo igual;
+   corre `npm run deploy:all -- --force --yes` para ignorar a cache.
+3. Limpar cache do browser (`Ctrl+F5`).
+
+### Ações (fluxo manual)
 1. Regerar pacote com `OPTIMIZAR.bat`.
 2. Confirmar extração do zip no diretório correto (`public_html`).
 3. Limpar cache do browser (`Ctrl+F5`).
+
+### Deploy automático falha
+Ver **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** → secção Troubleshooting para
+erros FTPS (TLS, `530 Login incorrect`, `ECONNREFUSED`, SFTP key, UAPI).
 
 ---
 
@@ -78,6 +89,9 @@ Links internos ou refresh (F5) em `/contacto`, `/produtos`, etc. devolvem 404 em
 ## 5) Segurança de credenciais
 
 - Não guardar passwords/tokens reais em docs de projeto.
+- **`.env.cpanel`** (FTP/SFTP/UAPI) está no `.gitignore`; nunca commitar.
+  Se por engano for commitado, rotacionar a password FTP imediatamente
+  no cPanel → FTP Accounts → Change Password.
 
 ---
 
@@ -93,6 +107,10 @@ Links internos ou refresh (F5) em `/contacto`, `/produtos`, etc. devolvem 404 em
 | `0 ficheiros` com pastas OK | Delta sem `downloadUrl` | Já tratado no servidor com `/content`; se persistir, ver `.navel-onedrive-sync.log`. |
 | Chaves i18n `{{x}}` não interpoladas | Sintaxe errada nos JSON | Usar **`{{placeholder}}`** em `src/locales/*.json`. |
 | `documentos-api-config.php` com erro | Falta `<?php` ou JWT errado | Secret = JWT Secret Supabase, não anon key. |
+| **Todos os utilizadores veem "sem pastas" / 403** | **Falta `.navel-permissions.json`** no cPanel (desde v0.2.6 a API é **fail-closed**) | Criar `documentos-store/.navel-permissions.json` a partir de `.navel-permissions.json.example` com os emails reais (ver `docs/CPANEL-DOCUMENTOS.md`). |
+| Upload rejeitado com `blocked_extension` | Ficheiro tem extensão executável (`.php`, `.exe`, `.bat`, …) ou double-extension (`relatorio.pdf.php`) | Renomear. Se for legítimo, configurar `upload_blocked_extensions` em `documentos-api-config.php`. |
+| Upload rejeitado com `file_too_large` | Ultrapassa `upload_max_bytes` (default 100 MiB) | Ajustar `cfg.upload_max_bytes` **e** `upload_max_filesize` / `post_max_size` no `php.ini` do cPanel. |
+| `onedrive-cron.php` devolve `401 unauthorized` após upgrade | Cron ainda usa `?token=` em vez de header | Mudar para `curl -H "X-Cron-Token: …"` ou, temporariamente, `cfg.onedrive_cron_allow_query = true`. |
 | F5 desloga ao refresh | Lógica extra de `signOut` em reload | Não forçar logout em `navigation.type === 'reload'`. |
 
 ---
@@ -101,6 +119,13 @@ Links internos ou refresh (F5) em `/contacto`, `/produtos`, etc. devolvem 404 em
 
 Além de `docs/TROUBLESHOOTING.md` §3:
 
+### Fluxo automatizado (preferido)
+1. Editar `public/*.php` ou código JS/CSS.
+2. Se alterou PHP: `npm run deploy:php -- --yes`.
+3. Se alterou frontend: `npm run build && npm run deploy:site -- --yes`.
+4. Se alterou ambos: `npm run build && npm run deploy:all -- --yes`.
+
+### Fluxo manual (fallback)
 1. Confirmar **`npm run build`** (gera `dist/` com `public/` copiado).
 2. Confirmar **`npm run make-zip`** (empacota **`dist/`**).
 3. No servidor: substituir **PHP** na raiz do site e limpar **`assets/`** como acima.

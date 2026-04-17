@@ -11,6 +11,7 @@ export default function Login() {
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberPassword, setRememberPassword] = useState(true)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const from = location.state?.from?.pathname || '/area-reservada'
@@ -52,6 +53,27 @@ export default function Login() {
             if (attempt === 0) await new Promise((r) => setTimeout(r, 400))
           }
         }
+        // PasswordCredential só é fiável em Chromium; o Firefox usa o gestor nativo (prompt após submit).
+        if (
+          rememberPassword
+          && typeof window !== 'undefined'
+          && window.PasswordCredential
+          && password
+          && !/Firefox/i.test(navigator.userAgent || '')
+        ) {
+          try {
+            const cred = new PasswordCredential({
+              id: email.trim().toLowerCase(),
+              password,
+              name: email.trim().toLowerCase(),
+            })
+            await navigator.credentials.store(cred)
+          } catch {
+            /* ignorar */
+          }
+        }
+        // Firefox (e alguns Chromium) só mostram "Guardar palavra-passe?" se a navegação não for instantânea.
+        await new Promise((r) => setTimeout(r, 300))
         if (approvedOk) {
           navigate(from, { replace: true })
         } else {
@@ -74,14 +96,48 @@ export default function Login() {
           <h1>{t('auth.loginTitle')}</h1>
           <p className="text-muted auth-card__lead">{t('auth.loginLead')}</p>
           {error && <div className="auth-card__error" role="alert">{error}</div>}
-          <form className="auth-form" onSubmit={handleSubmit} autoComplete="on">
+          <form className="auth-form" onSubmit={handleSubmit} autoComplete="on" name="login">
             <div className="auth-form__row">
               <label htmlFor="login-email">{t('auth.email')}</label>
-              <input id="login-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" disabled={loading} />
+              <input
+                id="login-email"
+                name="username"
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                spellCheck="false"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="username"
+                disabled={loading}
+              />
             </div>
             <div className="auth-form__row">
               <label htmlFor="login-password">{t('auth.password')}</label>
-              <input id="login-password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" disabled={loading} />
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onInput={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                disabled={loading}
+              />
+            </div>
+            <div className="auth-form__row auth-form__row--checkbox">
+              <label className="auth-form__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={rememberPassword}
+                  onChange={(e) => setRememberPassword(e.target.checked)}
+                  disabled={loading}
+                />
+                <span>{t('auth.rememberPasswordBrowser')}</span>
+              </label>
+              <p className="text-muted auth-form__hint">{t('auth.rememberPasswordBrowserHint')}</p>
             </div>
             <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
               {loading ? t('auth.loading') : t('auth.loginSubmit')}

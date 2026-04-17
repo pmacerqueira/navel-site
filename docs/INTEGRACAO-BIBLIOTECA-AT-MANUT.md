@@ -198,11 +198,73 @@ Retorna resultados filtrados para ambas as apps.
 
 ---
 
-## 9) Próximo passo técnico imediato
+## 9) Estado actual dos passos iniciais
 
-1. Definir endpoint de taxonomia no AT_Manut (`/api/taxonomy/nodes`).
-2. Adicionar no `documentos-api.php`:
-   - endpoint de busca por `documentType` + taxonomia
-   - endpoint de vínculo `machine-links`
-3. Ajustar UI da Área Reservada para navegação por taxonomia em `Assistência Técnica`.
+1. ~~Taxonomia no AT_Manut~~ — `taxonomy-nodes.php` + `ATM_TAXONOMY_TOKEN` (ver `docs/CPANEL-DOCUMENTOS.md`).
+2. ~~`documentos-api.php`~~ — pesquisa (`action=search`), vínculos (`machine_links`), índice `.navel-index.json`.
+3. ~~Área reservada~~ — árvore e metadata em `Assistencia Tecnica/...`.
+
+---
+
+## 10) Fase C — Token serviço AT_Manut + proxy PHP (sem CORS no cliente)
+
+O browser do dashboard **não** deve conter segredos. O fluxo correcto:
+
+1. Utilizador autenticado no AT_Manut (sessão PHP / cookie próprio).
+2. O **servidor** AT (`api/data.php` ou handler dedicado) valida a sessão e, se autorizado, chama `https://navel.pt/documentos-api.php` com  
+   `Authorization: Bearer <at_integration_bearer>`.
+3. O valor `at_integration_bearer` é uma **string opaca** (não é JWT Supabase) definida em `documentos-api-config.php` e espelhada na config do AT (ex. constante num `config.php` **fora do repositório**). Geração sugerida: `openssl rand -hex 32`.
+
+**Âmbito no cPanel:** com esse token, a API só permite operações **subordinadas ao ramo `Assistencia Tecnica/`** (listagem, download, pesquisa, upload, `set_metadata`, vínculos `machine_links`). Está **proibido**: OneDrive, apagar ficheiros/pastas, `ensure_marker`, taxonomia/sync, `reindex`.
+
+**Consistência com OneDrive:** ficheiros criados ou vinculados em `Assistencia Tecnica/...` seguem as mesmas regras que uploads da Área Reservada: o mount AT continua bidireccional; não é necessário acção extra no AT para “disparar” o OneDrive — o espelho aplica-se ao caminho no disco.
+
+**Mesmo site:** `https://navel.pt/manut/...` e `https://navel.pt/documentos-api.php` partilham origem `https://navel.pt`; mesmo assim o token **só** no servidor evita extração via JavaScript.
+
+### Exemplo mínimo de proxy (AT_Manut, ilustrativo)
+
+```php
+<?php
+// Depois de validar $_SESSION do AT (ou equivalente).
+
+const NAVEL_DOC_API = 'https://navel.pt/documentos-api.php';
+// require 'config.local.php'; // define NAVEL_AT_INTEGRATION_BEARER
+
+function navel_doc_proxy_json(string $method, array $opts): array {
+    $url = NAVEL_DOC_API;
+    if ($method === 'GET' && !empty($opts['query'])) {
+        $url .= '?' . http_build_query($opts['query']);
+    }
+    $ch = curl_init($url);
+    $headers = ['Accept: application/json', 'Authorization: Bearer ' . NAVEL_AT_INTEGRATION_BEARER];
+    if ($method === 'POST') {
+        $headers[] = 'Content-Type: application/json';
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_CUSTOMREQUEST => $method,
+    ]);
+    if ($method === 'POST' && isset($opts['json'])) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($opts['json'], JSON_UNESCAPED_UNICODE));
+    }
+    $raw = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $data = json_decode((string) $raw, true);
+    return ['http' => $code, 'data' => is_array($data) ? $data : null];
+}
+
+// Documentos ligados a uma máquina (usa índice + .navel-machine-links.json)
+// navel_doc_proxy_json('GET', [ 'query' => [ 'action' => 'search', 'machineId' => $idMaquina ] ]);
+
+// Vincular um ficheiro existente a uma ou mais máquinas
+// navel_doc_proxy_json('POST', [ 'json' => [ 'action' => 'machine_links', 'path' => $relPath, 'machineIds' => [$id], 'source' => 'MANUAL' ] ]);
+
+// Upload multipart: mesmo Bearer no header; campo opcional `linkMachineIds` = JSON array no formulário para gravar vínculos no mesmo pedido
+```
+
+No repositório **navel-site**, o cliente já expõe `cpanelMachineLinksGet` / `cpanelMachineLinksSet` em `src/lib/documentosCpanelApi.js` para a Área Reservada (JWT utilizador). O AT_Manut deve usar apenas o proxy servidor com `at_integration_bearer`.
+
+**UI AT_Manut:** implementar separador “Biblioteca” em `MaquinaDetalhe.jsx` (ou equivalente) no repositório do AT: listar resultados de `search?machineId=...`, modal de pesquisa global (`search?q=...`), upload para a subpasta da máquina + `linkMachineIds` opcional no `multipart`.
 

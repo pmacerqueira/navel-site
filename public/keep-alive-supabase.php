@@ -65,8 +65,13 @@ if (is_readable($secretPath)) {
     }
 }
 
+// Sem fallback hardcoded: evita expor a URL do projecto no repositorio.
+// Deve ser definido em getenv('SUPABASE_URL' / 'VITE_SUPABASE_URL') ou em
+// `keep-alive-supabase.secret.php` (chave `url`).
 if ($projectUrl === '') {
-    $projectUrl = 'https://kgvbvgwqkqkfccraaehb.supabase.co';
+    echo "ERRO - $timestamp - Definir SUPABASE_URL (ou VITE_SUPABASE_URL) ou `keep-alive-supabase.secret.php` com a chave `url`.\n";
+    http_response_code(500);
+    exit(1);
 }
 
 if ($key === '') {

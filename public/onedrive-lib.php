@@ -595,9 +595,18 @@ function ondrv_get_access_token(string $rootReal, array $cfg): ?string
 
 function ondrv_graph_url(string $pathOrUrl): string
 {
-    return str_starts_with($pathOrUrl, 'http')
-        ? $pathOrUrl
-        : ONDRV_GRAPH_ROOT . (str_starts_with($pathOrUrl, '/') ? '' : '/') . $pathOrUrl;
+    if (!str_starts_with($pathOrUrl, 'http')) {
+        return ONDRV_GRAPH_ROOT . (str_starts_with($pathOrUrl, '/') ? '' : '/') . $pathOrUrl;
+    }
+    $p = parse_url($pathOrUrl);
+    if ($p === false || ($p['scheme'] ?? '') !== 'https') {
+        throw new RuntimeException('graph_url_invalid');
+    }
+    $host = strtolower((string)($p['host'] ?? ''));
+    if ($host !== 'graph.microsoft.com') {
+        throw new RuntimeException('graph_url_host');
+    }
+    return $pathOrUrl;
 }
 
 /**

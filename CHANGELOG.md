@@ -1,5 +1,99 @@
 # Changelog — navel-site
 
+## [0.2.6] — 2026-04-17
+
+### Auditoria de sanitização e hardening de segurança
+
+Varredura completa da documentação, ficheiros, código-fonte e superfície de
+ataque. `npm audit` = **0 vulnerabilidades** (259 dependências). Correcções
+distribuídas por 3 camadas:
+
+#### Limpeza (Fase 1)
+- **Removidos** (obsoletos / one-shot / fora de escopo):
+  - `temp-rgpd.html` — página RGPD copiada de outro domínio (globalfiltros.pt), sem ligação ao site.
+  - `fix-istobal.php` — script one-shot com segredo fraco em claro (`NAVEL-istobal-2026`) e destruição via `GET ?confirm=1`.
+  - `scripts/download-brands.js` — apontava para `public/brands/` (caminho errado; o código usa `public/images/brands/`), não registado em `npm run` nem em `OPTIMIZAR.bat`.
+  - `docs/TAWKTO-PROXIMOS-PASSOS.md` — duplicava o checklist de `docs/TAWKTO-CHATBOT.md`.
+- **Fundidos:** `SETUP-SUPABASE.txt` reduzido a redirect curto para `docs/SUPABASE.md`.
+- **Documentação corrigida:**
+  - `docs/DEPLOY-AUTOMATICO-CPANEL.md` e `scripts/cpanel-deploy.mjs` L14 — `deploy:all` documentado correctamente (site + PHP, **sem** ZIPs nem catálogos).
+  - `docs/ONEDRIVE.md` §10 — "bidireccional" marcado como concluído (Fase G), deixando de contradizer o `ROADMAP-SHAREPOINT.md`.
+  - `docs/ROADMAP-SHAREPOINT.md` — `make-zip` substituído por `deploy:all` como primário.
+  - `docs/CPANEL-DOCUMENTOS.md` — numeração do checklist corrigida, nota operacional informal removida, novo passo explícito para criar `.navel-permissions.json` no cPanel.
+  - `docs/SUPABASE.md` — URL real do projecto substituído por placeholder no exemplo PHP.
+  - `docs/INDEX.md` — `ESTRUTURA.md` adicionado.
+  - `docs/OTIMIZACOES.md` — secção Publicação passa a destacar o pipeline `deploy:*` como primário.
+  - `public/images/README.md` — referência à página "Novidades" (removida) substituída por pastas reais.
+- **Higiene:**
+  - `src/pages/AreaReservada.jsx:704` — `console.info('[OneDrive debug]', …)` só corre em `import.meta.env.DEV`.
+  - `.gitignore` — adicionado `public/documentos-store/.navel-permissions.json` (ficheiro real com emails, fica apenas no servidor; o `.example` continua versionado).
+  - `.env.example` — adicionadas variáveis `SUPABASE_ADMIN_PASSWORD`, `VITE_TAWK_PROPERTY_ID`, `VITE_TAWK_WIDGET_ID` como comentadas.
+
+#### Hardening PHP (Fase 2)
+- **Fail-closed default permissions** (`public/documentos-api.php` — `n_doc_builtin_default_permissions`): quando o ficheiro `.navel-permissions.json` não existe ou é inválido, a API deixa de assumir `['*']` para todos — apenas o admin (`comercial@navel.pt`) tem acesso. Impede que uma instalação "meia" exponha a biblioteca a qualquer utilizador autenticado. **Acção operacional:** confirmar que o servidor tem o ficheiro criado; caso contrário, partir de `.navel-permissions.json.example`.
+- **`keep-alive-supabase.php`** — removido fallback que continha a URL real do projecto Supabase (`kgvbvgwqkqkfccraaehb.supabase.co`) hardcoded no código. Agora falha explicitamente se `SUPABASE_URL`/`VITE_SUPABASE_URL` ou a chave `url` no `keep-alive-supabase.secret.php` não estiver definida.
+- **`onedrive-cron.php`** — token passa a ser aceite apenas via header `X-Cron-Token` (evita log em access logs de proxies/CDN). Compatibilidade temporária: `cfg.onedrive_cron_allow_query=true` para crons legados.
+- **`n_doc_action_onedrive_status`** — resposta filtrada para não-admins: deixa de expor `userPrincipalName`, `displayName`, `driveId`, `rootItemId`, `deltaLink`, estatísticas de sync. Admins continuam a ver o resumo completo.
+- **Upload guards (`n_doc_action_upload`):**
+  - Limite de tamanho aplicacional configurável (`cfg.upload_max_bytes`, default 100 MiB) — complementa `php.ini`.
+  - Blocklist de extensões executáveis (inclui **double-extensions** tipo `foo.pdf.php`): PHP (`php`, `phtml`, `phar`, `php3-8`, `phps`), CGI (`cgi`, `pl`, `py`, `rb`), binários Windows (`exe`, `dll`, `com`, `bat`, `cmd`, `sh`, `msi`, `scr`), outros servidores (`asp`, `aspx`, `jsp`, `jspx`), Apache (`htaccess`, `htpasswd`). Configurável via `cfg.upload_blocked_extensions`. Defesa em profundidade face a `documentos-store/.htaccess` (`Require all denied`).
+- **HSTS** em `public/.htaccess`: `Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"` (condicionado a `%{HTTPS} == 'on'`).
+- **Sample actualizado:** `documentos-api-config.sample.php` ganhou `onedrive_cron_allow_query`, `upload_max_bytes`, `upload_blocked_extensions` e comentário sobre o novo cron via header.
+
+#### Nota de segurança — bucket Supabase Storage `documentos` (S3 não fechado)
+- Policies actuais (`docs/supabase-setup.sql` §Storage) permitem que qualquer utilizador autenticado leia (`SELECT`) e insira (`INSERT`) em qualquer caminho do bucket. Não há partição por parceiro.
+- O bucket ainda é usado activamente pelo `AreaReservada.jsx` (fallback do modo cPanel), portanto **as policies não foram alteradas** — fechá-las sem mapear o uso real poderia quebrar o portal em produção.
+- Adicionado bloco de aviso forte no topo da secção de policies em `docs/supabase-setup.sql` e nova secção em `docs/SUPABASE.md` §6.1 explicando o trade-off e oferecendo exemplo de hardening por `storage.foldername(name)[1] = auth.jwt()->>'email'`.
+
+#### Duplicados / ficheiros órfãos
+- Investigação dos pares `src\…` vs `src/…` no `git status`: confirmado que é **artefacto de exibição do PowerShell no Windows** — não há duplicação em disco.
+
+## [0.2.5] — 2026-04-17
+
+### Deploy automático para cPanel (FTPS / SFTP / UAPI) — exclusivo `navel-site`
+- **Âmbito restrito:** o novo pipeline aplica-se **apenas** ao `navel-site`/`www.navel.pt`. Outros projectos NAVEL (`app-stocks-next` em Vercel, `AT_Manut`, `app-ftecnicas`, `navel-propostas`) mantêm as suas próprias ferramentas de deploy. Documentado em `.cursor/rules/cpanel-deploy.mdc` (secção "Âmbito") e na tabela de `navel-workspace.mdc`.
+- **Runtime fence `enforceProjectFence()` em `scripts/cpanel-env.mjs`** — abortam `cpanel-probe.mjs` / `cpanel-deploy.mjs` se executados fora de `navel-site/` ou se `CPANEL_HOST` / `CPANEL_FTP_HOST` / `CPANEL_SFTP_HOST` não pertencerem ao domínio `navel.pt`. Previne uploads acidentais para servidor errado caso `.env.cpanel` seja copiado para outro repo.
+- **Novo pipeline `npm run deploy:*`** substitui o upload manual no File Manager como caminho primário de publicação do `navel-site`. Upload **incremental** por hash SHA-1 (`scripts/.cpanel-deploy-cache.json`, gitignored); só envia ficheiros alterados.
+- **Scripts:**
+  - `scripts/cpanel-env.mjs` — carregador partilhado de `.env.cpanel` (sem dependências runtime).
+  - `scripts/cpanel-probe.mjs` — testa FTPS, SFTP e UAPI em paralelo e reporta quais funcionam + latência.
+  - `scripts/cpanel-deploy.mjs` — deploy com `--dry`, `--yes`, `--force`, `--protocol=`, `--with-catalogos`, `--remote=`, `--file=`, `--php`, `--site`, `--zips`, `--all`.
+- **Comandos npm:** `deploy:probe`, `deploy:dry`, `deploy:php`, `deploy:site`, `deploy:zips`, `deploy:file`, `deploy:all`.
+- **Defaults seguros:** `--dry` se faltar `--yes`; `--all` = site + PHP (sem catálogos, sem ZIPs); catálogos PDF só com `--with-catalogos` explícito.
+- **TLS pragmático:** `CPANEL_FTP_TLS_STRICT=false` documentado para hosts partilhados (Ciberserver e similares) cujo certificado é válido para o hostname interno (`pplcXXXXX.ciberserver.com`), não para `ftp.domain.com`. Ligação continua encriptada.
+
+### Segurança
+- **`.env.cpanel`** (e `.env.cpanel.local`, cache `.cpanel-deploy-cache.json`) adicionados ao `.gitignore`. Credenciais nunca entram no repositório.
+- Recomendação: **conta FTP dedicada** ao deploy, chroot a `/home/<user>/public_html`, nunca a conta cPanel principal.
+
+### Dependências (devDependencies)
+- `basic-ftp` (FTPS) e `ssh2-sftp-client` (SFTP) — só usadas por scripts de deploy, não entram no bundle do site.
+
+### Documentação
+- **Novo** `docs/DEPLOY-AUTOMATICO-CPANEL.md` — guia passo-a-passo: descoberta do protocolo suportado, criação de credenciais dedicadas, `.env.cpanel`, probe, fluxos de uso, troubleshooting, boas práticas.
+- **Atualizados** `README.md`, `DEPLOY.md`, `PUBLICAR-CHECKLIST.txt`, `docs/INDEX.md`, `docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`, `docs/TROUBLESHOOTING.md`, `docs/SETUP.md`, `docs/CPANEL-DOCUMENTOS.md`, `docs/CREDENCIAIS-SEGURANCA.md`, `OPTIMIZAR.bat`.
+- **Regras atualizadas:** `.cursor/rules/cpanel-deploy.mdc` (fluxo automatizado + ficheiros sensíveis + ordens canónicas), `.cursor/rules/otimizar-bat.mdc` (nota sobre o novo caminho primário).
+
+### Continuidade
+- Fluxo primário: `npm run build` → `npm run deploy:dry` → `npm run deploy:all -- --yes`.
+- `OPTIMIZAR.bat` + ZIP manual continuam suportados como fallback e para backups/envios a parceiros.
+
+## [0.2.4] — 2026-04-17
+
+### Portal de documentos (área reservada, modo cPanel)
+- **Pesquisa global:** `cpanelSearch` + paleta **Ctrl+K** (`PortalCommandPalette.jsx`); filtro por `documentType`; abrir pasta do resultado.
+- **Fase B (metadata):** em `Assistencia Tecnica/.../...` (≥3 segmentos), upload exige `documentType`; `taxonomyNodeId` por match de path; multipart com `versionLabel` / `notes`; chips na listagem; `cpanelList` com metadata completa.
+- **Pré-visualização:** `GET download&inline=1` (PDF e imagens); `DocumentPreviewModal.jsx`.
+- **PHP:** `n_doc_action_download` com parâmetro `inline`; `n_doc_mime_allows_inline`.
+
+### Fase C (fundações navel-site — integração AT_Manut)
+- **`documentos-api.php`:** autenticação opcional por **`at_integration_bearer`** (string opaca; não JWT Supabase) com âmbito **apenas** `Assistencia Tecnica/...`; bloqueio explícito de OneDrive, deletes, taxonomia, `reindex`, `ensure_marker`, etc. (`403 forbidden_for_at_integration`).
+- **Upload:** campo multipart opcional **`linkMachineIds`** (JSON array) para gravar vínculos no mesmo pedido; `n_doc_store_machine_links_row` partilhado com `POST machine_links`.
+- **JS:** `cpanelMachineLinksGet` / `cpanelMachineLinksSet` em `documentosCpanelApi.js`.
+
+### Documentação
+- Actualizados **`docs/ROADMAP-SHAREPOINT.md`** (Fase B concluída na UI; itens 1–3 do plano de 10 marcados como entregues; próximo: Fase C), **`docs/CPANEL-DOCUMENTOS.md`** (tabela API portal), **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`** (`search`, `download` inline), **`docs/INDEX.md`**, **`docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md`** (§9–10 token AT + proxy).
+
 ## [0.2.3] — 2026-04-17
 
 ### Documentação operacional (área reservada + OneDrive)

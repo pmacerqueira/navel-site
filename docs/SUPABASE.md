@@ -100,6 +100,17 @@ O ficheiro `docs/supabase-setup.sql` já inclui a criação do bucket `documento
 1. **Storage** → `documentos` → **Upload file**
 2. Envie PDFs, etc. (catálogos, tabelas de preços, manuais)
 
+### ⚠️ Nota de segurança sobre o bucket `documentos` (auditoria 2026-04-17)
+
+As policies de `storage.objects` para o bucket `documentos` incluídas em `docs/supabase-setup.sql` permitem que **qualquer utilizador autenticado** leia (`SELECT`) e insira (`INSERT`) objectos em **qualquer caminho** do bucket. Não há partição por email/owner/prefixo.
+
+- Isto é **aceitável** se o bucket for usado apenas para ficheiros **partilhados entre todos os parceiros** (ex.: catálogos, tabelas de preços públicas dentro do portal).
+- Isto **não é aceitável** se planearem guardar documentos sensíveis por parceiro no bucket.
+
+O fluxo primário de documentos da área reservada é hoje a **API PHP em `documentos-api.php`** (cPanel) com RBAC por `.navel-permissions.json`. O bucket Supabase é mantido como fallback.
+
+Para endurecer, ver o bloco de comentários no topo das policies em `docs/supabase-setup.sql` (exemplo com `storage.foldername(name)[1] = auth.jwt()->>'email'`). **Antes de aplicar**, mapear exactamente quem precisa de ver o quê — as políticas actuais suportam o uso real em produção do `AreaReservada.jsx`.
+
 ## 7. Criar o administrador
 
 **Opção A — Script (recomendado):**
@@ -152,7 +163,7 @@ O Supabase pode **pausar** projectos free-tier após cerca de **7 dias sem activ
 ```php
 <?php
 return [
-  'url' => 'https://kgvbvgwqkqkfccraaehb.supabase.co',
+  'url' => 'https://seu-projeto.supabase.co',
   'anon_key' => 'cole aqui a chave anon de Settings → API',
 ];
 ```

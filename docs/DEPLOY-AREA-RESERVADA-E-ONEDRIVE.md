@@ -24,6 +24,25 @@ Este documento existe para **evitar repetir erros operacionais** (build vs zip, 
 
 ## Obrigatório — deploy no cPanel (sem cache “fantasma”)
 
+### Caminho automatizado (preferido desde `0.2.5`)
+
+```powershell
+npm run build
+npm run deploy:all -- --yes
+```
+
+- **FTPS incremental** via `.env.cpanel` local (ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`).
+- Só envia ficheiros alterados (cache SHA-1 em `scripts/.cpanel-deploy-cache.json`).
+- **Não** precisa de apagar `public_html/assets/` — ficheiros com hashes
+  novos substituem os antigos pelo nome. Se quiseres limpar mesmo, apaga
+  `scripts/.cpanel-deploy-cache.json` e corre `deploy:all -- --force --yes`
+  (re-envia tudo), ou usa o File Manager pontualmente.
+- Atenção a `public/documentos-api-config.php`: contém segredos; confirma
+  que o `.env` local está alinhado com a config no servidor antes de
+  sobrescrever.
+
+### Caminho manual (File Manager — fallback)
+
 1. **Apagar a pasta `public_html/assets/`** (ou renomear para backup) **antes** de extrair o novo ZIP.  
    - Os ficheiros JS/CSS têm **hash no nome** (`AreaReservada-xxxxx.js`).  
    - Se ficarem ficheiros velhos, o browser pode continuar a carregar **UI antiga** sem os botões/fluxos novos.
@@ -60,6 +79,8 @@ Este documento existe para **evitar repetir erros operacionais** (build vs zip, 
 
 | Action | Uso |
 |--------|-----|
+| `GET search` | Índice global (portal: **Ctrl+K**); filtros opcionais (`q`, `documentType`, …). |
+| `GET download&inline=1` | Pré-visualização **PDF** / imagens (`Content-Disposition: inline`); outros tipos mantêm `attachment`. |
 | `GET onedrive_sync_preview` | Estimativa: ficheiros em falta no disco, pastas, ficheiros locais. |
 | `POST onedrive_sync_tick` | Um passo de sync (polling + progresso). |
 | `POST onedrive_trigger_sync` | Sync completo no **servidor** (loop até `done`, ~14 min/mount). |
@@ -88,18 +109,23 @@ Este documento existe para **evitar repetir erros operacionais** (build vs zip, 
 
 ## Para agentes / assistentes IA (continuidade)
 
-- **Não** prometer “zero erros para sempre”; **sim** seguir esta checklist e `docs/INDEX.md`.  
-- **Não** dar ao utilizador **só** comandos de consola se pediu fluxo simples; dar **passos de UI** (File Manager, botões).  
-- **Sempre** `build` → `make-zip` após alterar `public/*.php` destinados ao servidor.  
-- **PowerShell:** usar **`;`** entre comandos, não `&&` (depende da versão).  
+- **Não** prometer “zero erros para sempre”; **sim** seguir esta checklist e `docs/INDEX.md`.
+- **Sempre** que o utilizador peça deploy/upload/publicação, usar o
+  **fluxo automatizado** (`npm run deploy:*`) em vez de instruções manuais
+  para o File Manager. Regra operacional em `.cursor/rules/cpanel-deploy.mdc`.
+- **Sempre** `build` → `deploy` (ou `build` → `make-zip` no fallback manual)
+  após alterar `public/*.php` destinados ao servidor.
+- **PowerShell:** usar **`;`** entre comandos, não `&&` (depende da versão).
 - **curl com redirect www:** pedidos autenticados podem **perder** o header — usar URL canónica **`https://navel.pt`** ou `curl -L` com cuidado.
 
 ---
 
 ## Referências cruzadas
 
-- `docs/CPANEL-DOCUMENTOS.md` — config da API e disco.  
-- `docs/ONEDRIVE.md` — detalhe técnico Graph, mounts, políticas.  
-- `docs/SUPABASE.md` — Auth e JWT.  
-- `docs/TROUBLESHOOTING.md` — índice de sintomas.  
+- `docs/DEPLOY-AUTOMATICO-CPANEL.md` — upload automático FTPS/SFTP/UAPI (primário).
+- `docs/CPANEL-DOCUMENTOS.md` — config da API e disco.
+- `docs/ONEDRIVE.md` — detalhe técnico Graph, mounts, políticas.
+- `docs/SUPABASE.md` — Auth e JWT.
+- `docs/TROUBLESHOOTING.md` — índice de sintomas.
 - `DEPLOY.md` — publicação geral do site.
+- `.cursor/rules/cpanel-deploy.mdc` — regra operacional para agentes.

@@ -78,7 +78,35 @@ AS $$
   SELECT COALESCE((auth.jwt()->>'email') = 'comercial@navel.pt', false);
 $$;
 
--- Storage portal: leitura + upload para todos autenticados; UPDATE/DELETE só admin
+-- ============================================================================
+-- Storage portal: policies do bucket `documentos`.
+--
+-- AVISO DE SEGURANÇA (auditoria 2026-04-17):
+--   As policies abaixo permitem que QUALQUER utilizador autenticado leia/escreva
+--   TODOS os objectos do bucket `documentos`. Não há partição por owner, email
+--   ou prefixo de pasta. Dois parceiros autenticados conseguem ler ficheiros
+--   um do outro via API Storage directamente (não via PHP).
+--
+--   Esta abertura é aceitável SE o bucket for usado apenas para documentos
+--   partilhados entre todos os autenticados (ex.: catálogos comuns). NÃO é
+--   aceitável se o bucket guardar documentos sensíveis por parceiro.
+--
+--   O fluxo primário de documentos da área reservada é hoje a **API PHP em
+--   `documentos-api.php`** (cPanel) com RBAC por `.navel-permissions.json`.
+--   Este bucket Storage é mantido como fallback / documentos transversais.
+--
+--   Para endurecer (quando houver modelo de partição definido), substitua
+--   as policies abaixo por algo do tipo:
+--
+--     USING (bucket_id = 'documentos' AND (
+--       public.is_admin_documentos()
+--       OR (storage.foldername(name))[1] = auth.jwt()->>'email'
+--     ))
+--
+--   Mover toda a separação por parceiro para a API PHP é preferível se os
+--   documentos ficarem no cPanel.
+-- ============================================================================
+
 DROP POLICY IF EXISTS "Authenticated read documentos" ON storage.objects;
 CREATE POLICY "Authenticated read documentos"
   ON storage.objects FOR SELECT

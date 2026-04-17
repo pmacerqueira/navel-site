@@ -1,40 +1,13 @@
 ========================================
-  Navel — Configuração Supabase (rápida)
+  Navel — Configuração Supabase
 ========================================
 
-1. EDITAR .env
-   Abra o ficheiro .env e substitua pelos valores do seu projeto:
-   - Supabase → Settings → API
-   - Project URL  → VITE_SUPABASE_URL
-   - anon public  → VITE_SUPABASE_ANON_KEY
+Este ficheiro foi absorvido em `docs/SUPABASE.md`.
+Abrir esse ficheiro para o setup completo (Supabase Auth, SQL, bucket,
+criação de admin, keep-alive).
 
-2. EXECUTAR SQL
-   - Supabase → SQL Editor → New query
-   - Copie todo o conteúdo de docs/supabase-setup.sql
-   - Cole e clique Run
+Comandos rápidos de referência:
+  npm run dev           # desenvolvimento local
+  npm run create-admin  # cria admin via service_role (ver docs/SUPABASE.md §Admin)
 
-3. ATIVAR VERIFICAÇÃO DE EMAIL
-   - Authentication → Providers → Email
-   - Ative "Confirm email"
-
-4. CRIAR BUCKET
-   - Storage → New bucket
-   - Nome: documentos
-   - Privado (não público)
-   - Policies → New policy → SELECT para authenticated
-
-5. CRIAR ADMIN
-   Opção A (script): Adicione SUPABASE_SERVICE_ROLE_KEY ao .env → npm run create-admin
-   Opção B (dashboard): Authentication → Users → Add user
-   - Email: comercial@navel.pt
-   - Password: (escolha uma segura)
-   - Create user
-
-6. TESTAR
-   npm run dev
-   Aceda a http://localhost:3000/login
-   Entre com comercial@navel.pt e a sua password
-
-========================================
-Ver docs/SUPABASE.md para detalhes.
 ========================================

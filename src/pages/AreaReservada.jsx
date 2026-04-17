@@ -27,8 +27,14 @@ import {
   ASSISTENCIA_TECNICA_ROOT,
   COMERCIAL_ROOT,
   DOCUMENTOS_ROOT_FOLDERS,
+  DOCUMENT_TYPES,
   normalizeTaxonomyPath,
+  normalizeFolderDedupeKey,
+  pathMatchesMountFolder,
+  relativePathUnderAssistenciaRoot,
 } from '../lib/documentosSchema'
+import PortalCommandPalette from '../components/PortalCommandPalette'
+import DocumentPreviewModal from '../components/DocumentPreviewModal'
 
 const ONEDRIVE_MOUNT_FOLDERS = {
   comercial: COMERCIAL_ROOT,
@@ -272,6 +278,9 @@ export default function AreaReservada() {
   const [selectedFiles, setSelectedFiles] = useState([])
   const [uploadStatuses, setUploadStatuses] = useState([])
   const [uploadMeta, setUploadMeta] = useState({ title: '', tags: '', note: '' })
+  const [uploadDocumentType, setUploadDocumentType] = useState('')
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [preview, setPreview] = useState({ open: false, title: '', blobUrl: null, fileType: '' })
   const [versionHistory, setVersionHistory] = useState({})
   const [auditLog, setAuditLog] = useState([])
   const [taxonomyNodes, setTaxonomyNodes] = useState([])
@@ -345,17 +354,32 @@ export default function AreaReservada() {
     return m
   }, [t])
 
-  // Detecta em qual mount OneDrive cai o caminho corrente (ou null).
+  // Detecta em qual mount OneDrive cai o caminho corrente (para apagar, pull, debug).
   // Comercial = pull (OneDrive → Sharepoint). AT = push (Sharepoint → OneDrive).
   const activeMount = useMemo(() => {
     if (!currentPath) return null
     for (const [id, folder] of Object.entries(ONEDRIVE_MOUNT_FOLDERS)) {
-      if (currentPath === folder || currentPath.startsWith(`${folder}/`)) {
+      if (pathMatchesMountFolder(currentPath, folder)) {
         return { id, folder }
       }
     }
     return null
   }, [currentPath])
+
+  /** Mounts OneDrive configurados no servidor (Comercial + Assistência Técnica), ordem fixa. */
+  const onedriveMountEntries = useMemo(() => {
+    const mounts = onedriveStatus?.mounts
+    if (!mounts) return []
+    const order = ['comercial', 'at']
+    return order
+      .map((id) => {
+        const st = mounts[id]
+        if (!st) return null
+        const folder = ONEDRIVE_MOUNT_FOLDERS[id]
+        return folder ? { id, folder, status: st } : null
+      })
+      .filter(Boolean)
+  }, [onedriveStatus])
 
   const activeMountStatus = useMemo(() => {
     if (!activeMount) return null
@@ -370,11 +394,14 @@ export default function AreaReservada() {
     return !d || d === 'push' || d === 'bidirectional'
   }, [onedriveStatus])
 
-  /** Push/bidireccional: OneDrive e fonte de pastas; UI nao funde nos virtuais da taxonomia. */
-  const atHidesTaxonomyVirtualFolders = useMemo(() => {
-    const d = onedriveStatus?.mounts?.at?.direction
-    return d === 'push' || d === 'bidirectional'
-  }, [onedriveStatus])
+  /**
+   * Fundir sempre pastas da taxonomia AT_Manut com as pastas físicas (OneDrive/servidor).
+   * Antes, em push/bidireccional, a UI escondia os nós da taxonomia e só mostrava o espelho
+   * OneDrive — parecia que o portal “ignorava” o AT após corrigir nomes no AT_Manut.
+   * O PHP continua a não criar pastas em disco (sync_taxonomy_tree) quando o mount AT é
+   * push/bidireccional; só a listagem funde virtuais + físicas (dedupe por nome normalizado).
+   */
+  const atHidesTaxonomyVirtualFolders = false
 
   const loadTaxonomy = useCallback(async () => {
     if (!useCpanelDocs || !supabase) return
@@ -673,8 +700,10 @@ export default function AreaReservada() {
       const token = sessionData?.session?.access_token
       if (!token) return
       const data = await cpanelOnedriveDebugMount(token, mountId, relPathInsideActiveMount)
-      // eslint-disable-next-line no-console
-      console.info('[OneDrive debug]', data)
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.info('[OneDrive debug]', data)
+      }
       const loc = relPathInsideActiveMount || '/'
       const summary = `[${loc}] Local: ${data?.counts?.local ?? '?'} · Graph: ${data?.counts?.graph ?? '?'} · Só local: ${(data?.localOnly || []).join(', ') || '—'}`
       setOnedriveFeedback({ type: 'info', msg: summary })
@@ -820,20 +849,18 @@ export default function AreaReservada() {
     [items]
   )
   const taxonomyChildFolders = useMemo(() => {
-    const inAssistencia = currentPath === ASSISTENCIA_TECNICA_ROOT || currentPath.startsWith(`${ASSISTENCIA_TECNICA_ROOT}/`)
-    if (!inAssistencia || taxonomyNodes.length === 0) return []
+    const rel = relativePathUnderAssistenciaRoot(currentPath)
+    if (rel === null || taxonomyNodes.length === 0) return []
     if (atHidesTaxonomyVirtualFolders) return []
-    const rel = currentPath === ASSISTENCIA_TECNICA_ROOT
-      ? ''
-      : currentPath.slice(`${ASSISTENCIA_TECNICA_ROOT}/`.length)
     const relNorm = normalizeTaxonomyPath(rel).replace(/\\/g, '/')
     const stripAssistenciaPrefix = (value) => {
       const v = normalizeTaxonomyPath(String(value || '')).replace(/\\/g, '/')
       if (!v) return ''
-      const lower = v.toLowerCase()
-      const prefix = ASSISTENCIA_TECNICA_ROOT.toLowerCase()
-      if (lower === prefix) return ''
-      if (lower.startsWith(`${prefix}/`)) return v.slice(ASSISTENCIA_TECNICA_ROOT.length + 1)
+      const parts = v.split('/').filter(Boolean)
+      if (parts.length === 0) return ''
+      if (normalizeFolderDedupeKey(parts[0]) === normalizeFolderDedupeKey(ASSISTENCIA_TECNICA_ROOT)) {
+        return parts.slice(1).join('/')
+      }
       return v
     }
     const parentPathFromNode = (node) => {
@@ -846,7 +873,7 @@ export default function AreaReservada() {
       return normalizeTaxonomyPath(parent).replace(/\\/g, '/')
     }
     return taxonomyNodes
-      .filter((n) => parentPathFromNode(n) === relNorm)
+      .filter((n) => normalizeFolderDedupeKey(parentPathFromNode(n)) === normalizeFolderDedupeKey(relNorm))
       .map((n) => ({
         name: normalizeTaxonomyPath(String(n.slug || n.code || n.id || '')),
         displayName: normalizeTaxonomyPath(String(n.name || n.slug || '')),
@@ -859,16 +886,26 @@ export default function AreaReservada() {
   )
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const visibleFolders = useMemo(() => {
-    if (taxonomyChildFolders.length === 0) return folders
     const map = new Map()
     for (const f of folders) {
-      const key = normalizeTaxonomyPath(f.name)
-      if (!map.has(key)) map.set(key, f)
+      const key = normalizeFolderDedupeKey(f.name)
+      if (!key) continue
+      if (!map.has(key)) map.set(key, { physical: f, virtual: null })
+    }
+    if (taxonomyChildFolders.length === 0) {
+      return Array.from(map.values()).map(({ physical }) => physical).filter(Boolean)
     }
     for (const node of taxonomyChildFolders) {
-      if (!map.has(node.name)) map.set(node.name, { name: node.name, metadata: {} })
+      const key = normalizeFolderDedupeKey(node.name)
+      if (!key) continue
+      const cur = map.get(key) || { physical: null, virtual: null }
+      cur.virtual = node
+      map.set(key, cur)
     }
-    return Array.from(map.values())
+    return Array.from(map.values()).map(({ physical, virtual }) => {
+      if (physical) return physical
+      return { name: virtual.name, metadata: {} }
+    })
   }, [folders, taxonomyChildFolders])
   const filteredFolders = useMemo(() => (
     visibleFolders.filter((i) => i.name.toLowerCase().includes(normalizedSearch))
@@ -879,6 +916,7 @@ export default function AreaReservada() {
         const mimetype = f.metadata?.mimetype || ''
         const fullPath = currentPath ? `${currentPath}/${f.name}` : f.name
         const history = versionHistory[fullPath] || []
+        const docType = f.metadata?.documentType || ''
         return {
           ...f,
           fullPath,
@@ -887,6 +925,7 @@ export default function AreaReservada() {
           dateLabel: formatDate(f.updated_at || f.created_at || f.last_accessed_at, locale),
           history,
           versionCount: history.length || 1,
+          documentType: docType,
         }
       })
       .filter((f) => f.name.toLowerCase().includes(normalizedSearch))
@@ -896,15 +935,47 @@ export default function AreaReservada() {
   const folderDisplayName = useMemo(() => {
     const taxMap = new Map()
     for (const n of taxonomyChildFolders) {
-      const k = normalizeTaxonomyPath(String(n.name || ''))
+      const k = normalizeFolderDedupeKey(String(n.name || ''))
       if (k) taxMap.set(k, n.displayName || n.name)
     }
     return (slug) => {
+      const keyDedupe = normalizeFolderDedupeKey(String(slug || ''))
+      if (keyDedupe && taxMap.has(keyDedupe)) return taxMap.get(keyDedupe)
       const key = normalizeTaxonomyPath(String(slug || ''))
-      if (taxMap.has(key)) return taxMap.get(key)
       return rootLabelMap[key] || rootLabelMap[slug] || slug
     }
   }, [taxonomyChildFolders, rootLabelMap])
+
+  const resolvedTaxonomyNodeId = useMemo(() => {
+    if (!taxonomyNodes.length) return ''
+    const target = normalizeTaxonomyPath(currentPath).replace(/\\/g, '/').trim()
+    const targetKey = normalizeFolderDedupeKey(target)
+    for (const n of taxonomyNodes) {
+      const p = normalizeTaxonomyPath(n.path || '').replace(/\\/g, '/').trim()
+      if (p && normalizeFolderDedupeKey(p) === targetKey) return String(n.id || '')
+    }
+    return ''
+  }, [currentPath, taxonomyNodes])
+
+  /** Fase B: pastas Assistência Técnica ≥3 segmentos (ex.: AT/Categoria/Subcategoria). */
+  const insideTaxonomyUploadZone = useMemo(() => {
+    const rel = relativePathUnderAssistenciaRoot(currentPath)
+    if (rel === null || rel === '') return false
+    const parts = rel.split('/').filter(Boolean)
+    return parts.length >= 2
+  }, [currentPath])
+
+  useEffect(() => {
+    if (!useCpanelDocs || !accessToken) return undefined
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [useCpanelDocs, accessToken])
 
   const navigateToFolder = (name) => {
     const next = joinStoragePath(currentPath, name)
@@ -969,6 +1040,56 @@ export default function AreaReservada() {
     }
   }
 
+  const closePreview = () => {
+    setPreview((p) => {
+      if (p.blobUrl) {
+        try {
+          URL.revokeObjectURL(p.blobUrl)
+        } catch {
+          /* ignore */
+        }
+      }
+      return { open: false, title: '', blobUrl: null, fileType: '' }
+    })
+  }
+
+  const handlePreview = async (fileName) => {
+    if (!useCpanelDocs || !supabase) return
+    const safe = sanitizeSegment(fileName)
+    if (!safe) return
+    const fullPath = currentPath ? `${currentPath}/${safe}` : safe
+    const ft = detectFileType(safe, '')
+    if (ft !== 'pdf' && ft !== 'image') {
+      setUploadFeedback({ type: 'error', msg: t('auth.portalPreviewUnsupported') })
+      setTimeout(() => setUploadFeedback(null), 4000)
+      return
+    }
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData?.session?.access_token
+    if (!token) return
+    try {
+      let blob = await cpanelDownloadBlob(token, fullPath, { inline: true })
+      if (ft === 'pdf' && (!blob.type || blob.type === 'application/octet-stream')) {
+        blob = new Blob([await blob.arrayBuffer()], { type: 'application/pdf' })
+      }
+      const url = URL.createObjectURL(blob)
+      setPreview((prev) => {
+        if (prev.blobUrl) {
+          try {
+            URL.revokeObjectURL(prev.blobUrl)
+          } catch {
+            /* ignore */
+          }
+        }
+        return { open: true, title: safe, blobUrl: url, fileType: ft }
+      })
+      writeAuditLog({ action: 'preview', target: fullPath })
+    } catch (err) {
+      setUploadFeedback({ type: 'error', msg: err instanceof Error ? err.message : String(err) })
+      setTimeout(() => setUploadFeedback(null), 4000)
+    }
+  }
+
   const ingestFiles = useCallback((fileList) => {
     const arr = Array.from(fileList || []).filter((f) => f && f.size >= 0)
     if (arr.length === 0) return
@@ -1018,12 +1139,17 @@ export default function AreaReservada() {
     setSelectedFiles([])
     setUploadStatuses([])
     setUploadMeta({ title: '', tags: '', note: '' })
+    setUploadDocumentType('')
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
   const handleUpload = async () => {
     if (!selectedFiles.length || !supabase) return
+    if (useCpanelDocs && insideTaxonomyUploadZone && !uploadDocumentType) {
+      setUploadFeedback({ type: 'error', msg: t('auth.portalDocumentTypeRequired') })
+      return
+    }
     setUploading(true)
     setUploadFeedback(null)
     const { data: sessionData } = await supabase.auth.getSession()
@@ -1063,7 +1189,15 @@ export default function AreaReservada() {
         updateStatus(index, { status: attempt > 1 ? 'retrying' : 'uploading', tries: attempt })
         try {
           if (useCpanelDocs) {
-            await cpanelUploadWithProgress(token, currentPath, file, (pct) => updateStatus(index, { progress: pct }))
+            const extra = {}
+            if (insideTaxonomyUploadZone) {
+              extra.documentType = uploadDocumentType
+              if (resolvedTaxonomyNodeId) extra.taxonomyNodeId = resolvedTaxonomyNodeId
+            }
+            if (uploadMeta.title) extra.versionLabel = uploadMeta.title
+            const noteParts = [uploadMeta.note, uploadMeta.tags].filter(Boolean)
+            if (noteParts.length) extra.notes = noteParts.join(' · ')
+            await cpanelUploadWithProgress(token, currentPath, file, (pct) => updateStatus(index, { progress: pct }), extra)
           } else {
             const { error: err } = await supabase.storage.from(BUCKET).upload(uploadPath, file, {
               upsert: isAdmin,
@@ -1313,6 +1447,16 @@ export default function AreaReservada() {
                 )}
               </div>
               <div className="doc-portal__actions-right">
+                {useCpanelDocs && accessToken && (
+                  <button
+                    type="button"
+                    className="btn btn--outline btn--sm doc-portal__cmd-trigger"
+                    onClick={() => setCommandPaletteOpen(true)}
+                    title={t('auth.portalCommandSearchHint')}
+                  >
+                    {t('auth.portalCommandSearchTitle')} <kbd className="doc-portal__kbd">Ctrl+K</kbd>
+                  </button>
+                )}
                 <div className="doc-portal__search">
                   <span className="doc-portal__search-icon" aria-hidden>🔍</span>
                   <input
@@ -1383,6 +1527,33 @@ export default function AreaReservada() {
                 <p className="doc-portal__upload-meta-inline">
                   {t('auth.portalUploadSelectedCount', { count: selectedFiles.length })}
                 </p>
+                {useCpanelDocs && insideTaxonomyUploadZone && (
+                  <div className="doc-portal__upload-taxonomy-hint">
+                    <label className="doc-portal__upload-doctype-label" htmlFor="upload-document-type">
+                      {t('auth.portalDocumentTypeLabel')}
+                    </label>
+                    <select
+                      id="upload-document-type"
+                      className="doc-portal__select doc-portal__select--block"
+                      value={uploadDocumentType}
+                      onChange={(e) => setUploadDocumentType(e.target.value)}
+                      disabled={uploading}
+                      required
+                    >
+                      <option value="">{t('auth.portalDocumentTypePlaceholder')}</option>
+                      {DOCUMENT_TYPES.map((dt) => (
+                        <option key={dt} value={dt}>
+                          {t(`auth.documentType.${dt}`)}
+                        </option>
+                      ))}
+                    </select>
+                    {resolvedTaxonomyNodeId ? (
+                      <span className="doc-portal__taxonomy-id-hint" title="taxonomyNodeId">
+                        ID: {resolvedTaxonomyNodeId}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
                 <div className="doc-portal__inline-form">
                   <input
                     type="text"
@@ -1408,7 +1579,12 @@ export default function AreaReservada() {
                     onChange={(e) => setUploadMeta((prev) => ({ ...prev, note: e.target.value }))}
                     disabled={uploading}
                   />
-                  <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleUpload()} disabled={uploading}>
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--sm"
+                    onClick={() => void handleUpload()}
+                    disabled={uploading || (useCpanelDocs && insideTaxonomyUploadZone && !uploadDocumentType)}
+                  >
                     {uploading ? t('auth.loading') : t('auth.portalUpload')}
                   </button>
                   <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={clearUploadDraft} disabled={uploading}>
@@ -1489,65 +1665,84 @@ export default function AreaReservada() {
 
               {!loading && !error && (
                 <>
-                  {useCpanelDocs && onedriveStatus?.configured && activeMount && activeMountStatus && (
-                    <div className={`doc-portal__status-bar${onedriveStatus.connected ? '' : ' doc-portal__status-bar--warn'}`} role="status" aria-live="polite">
-                      <span className="doc-portal__status-icon" aria-hidden>
-                        {activeMountStatus.direction === 'pull' ? '☁️⬇' : activeMountStatus.direction === 'push' ? '☁️⬆' : '☁️⇅'}
-                      </span>
-                      <div className="doc-portal__status-text">
-                        <strong className="doc-portal__status-title">
-                          {activeMountStatus.direction === 'pull'
-                            ? t('auth.onedrivePanelTitlePull')
-                            : activeMountStatus.direction === 'push'
-                              ? t('auth.onedrivePanelTitlePush')
-                              : t('auth.onedrivePanelTitleBidi')}
-                        </strong>
-                        <span className="doc-portal__status-sub">
-                          {onedriveStatus.connected
-                            ? t('auth.onedriveConnectedBadge', { user: onedriveStatus.userPrincipalName || onedriveStatus.displayName || '' })
-                              + ' · '
-                              + (activeMountStatus.lastSyncAt
-                                  ? t('auth.onedriveLastSync', { at: formatDate(new Date(activeMountStatus.lastSyncAt * 1000).toISOString(), locale) })
-                                  : t('auth.onedriveNeverSynced'))
-                            : t('auth.onedriveNotConnected')}
-                        </span>
-                      </div>
-                      <div className="doc-portal__status-actions">
-                        {!onedriveStatus.connected ? (
-                          isAdmin && (
-                            <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
-                              {onedriveBusy ? t('auth.loading') : t('auth.onedriveConnect')}
-                            </button>
-                          )
-                        ) : (
-                          <>
+                  {useCpanelDocs && onedriveStatus?.configured && onedriveMountEntries.length > 0 && (
+                    <div className="doc-portal__onedrive-mounts">
+                      {!onedriveStatus.connected ? (
+                        <div className="doc-portal__status-bar doc-portal__status-bar--warn" role="status" aria-live="polite">
+                          <span className="doc-portal__status-icon" aria-hidden>☁️</span>
+                          <div className="doc-portal__status-text">
+                            <strong className="doc-portal__status-title">{t('auth.onedriveNotConnected')}</strong>
+                            <span className="doc-portal__status-sub">{t('auth.onedriveIntroHint')}</span>
+                          </div>
+                          <div className="doc-portal__status-actions">
                             {isAdmin && (
-                              <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveSync(activeMount.id)} disabled={onedriveBusy}>
-                                {onedriveBusy ? t('auth.loading') : t('auth.onedriveSyncNow')}
+                              <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
+                                {onedriveBusy ? t('auth.loading') : t('auth.onedriveConnect')}
                               </button>
                             )}
-                            {isAdmin && (
-                              <MenuDropdown
-                                align="right"
-                                label={t('auth.onedriveMoreLabel')}
-                                trigger={<span className="doc-portal__more" aria-hidden>⋯</span>}
-                              >
-                                <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
-                                  {t('auth.onedriveReconnect')}
-                                </button>
-                                {activeMountStatus.direction !== 'push' && (
-                                  <button type="button" className="doc-menu__item doc-menu__item--danger" role="menuitem" onClick={() => void handleOnedriveResetLocal(activeMount.id)} disabled={onedriveBusy}>
-                                    {t('auth.onedriveResetLocal')}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="doc-portal__onedrive-account">
+                            {t('auth.onedriveConnectedBadge', { user: onedriveStatus.userPrincipalName || onedriveStatus.displayName || '' })}
+                          </p>
+                          {onedriveMountEntries.map(({ id, status: ms }) => (
+                            <div
+                              key={id}
+                              className="doc-portal__status-bar"
+                              role="status"
+                              aria-live="polite"
+                            >
+                              <span className="doc-portal__status-icon" aria-hidden>
+                                {ms.direction === 'pull' ? '☁️⬇' : ms.direction === 'push' ? '☁️⬆' : '☁️⇅'}
+                              </span>
+                              <div className="doc-portal__status-text">
+                                <strong className="doc-portal__status-title">
+                                  {id === 'comercial' ? t('auth.portalFolderComercial') : t('auth.portalFolderAssistencia')}
+                                  {' · '}
+                                  {ms.direction === 'pull'
+                                    ? t('auth.onedrivePanelTitlePull')
+                                    : ms.direction === 'push'
+                                      ? t('auth.onedrivePanelTitlePush')
+                                      : t('auth.onedrivePanelTitleBidi')}
+                                </strong>
+                                <span className="doc-portal__status-sub">
+                                  {ms.lastSyncAt
+                                    ? t('auth.onedriveLastSync', { at: formatDate(new Date(ms.lastSyncAt * 1000).toISOString(), locale) })
+                                    : t('auth.onedriveNeverSynced')}
+                                </span>
+                              </div>
+                              <div className="doc-portal__status-actions">
+                                {isAdmin && (
+                                  <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveSync(id)} disabled={onedriveBusy}>
+                                    {onedriveBusy ? t('auth.loading') : t('auth.onedriveSyncNow')}
                                   </button>
                                 )}
-                              </MenuDropdown>
-                            )}
-                          </>
-                        )}
-                      </div>
+                                {isAdmin && (
+                                  <MenuDropdown
+                                    align="right"
+                                    label={t('auth.onedriveMoreLabel')}
+                                    trigger={<span className="doc-portal__more" aria-hidden>⋯</span>}
+                                  >
+                                    <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
+                                      {t('auth.onedriveReconnect')}
+                                    </button>
+                                    {ms.direction !== 'push' && (
+                                      <button type="button" className="doc-menu__item doc-menu__item--danger" role="menuitem" onClick={() => void handleOnedriveResetLocal(id)} disabled={onedriveBusy}>
+                                        {t('auth.onedriveResetLocal')}
+                                      </button>
+                                    )}
+                                  </MenuDropdown>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
-                  {useCpanelDocs && onedriveStatus?.configured && activeMount && onedriveSyncProgress && (
+                  {useCpanelDocs && onedriveStatus?.configured && onedriveSyncProgress && (
                     <div className="doc-portal__sync-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(
                       100 -
                         Math.min(
@@ -1589,7 +1784,7 @@ export default function AreaReservada() {
                       </p>
                     </div>
                   )}
-                  {useCpanelDocs && onedriveStatus?.configured && activeMount && onedriveFeedback && (
+                  {useCpanelDocs && onedriveStatus?.configured && onedriveFeedback && (
                     <p
                       className={
                         onedriveFeedback.type === 'success'
@@ -1720,10 +1915,22 @@ export default function AreaReservada() {
                             <FileThumbnail fullPath={f.fullPath} fileType={f.fileType} fileName={f.name} token={accessToken} />
                             <div className="doc-file-row__meta">
                               <span className="doc-file-row__name">{f.name}</span>
+                              {f.documentType ? (
+                                <span className="doc-file-row__chip">{t(`auth.documentType.${f.documentType}`, { defaultValue: f.documentType })}</span>
+                              ) : null}
                               <span className="doc-file-row__sub">{f.sizeLabel} · {f.dateLabel}</span>
                             </div>
                             <div className="doc-file-row__actions">
                               <span className="doc-file-row__version">{t('auth.portalVersionBadge', { count: f.versionCount })}</span>
+                              {useCpanelDocs && (f.fileType === 'pdf' || f.fileType === 'image') && (
+                                <button
+                                  type="button"
+                                  className="btn btn--outline btn--sm doc-portal__btn-on-light"
+                                  onClick={() => void handlePreview(f.name)}
+                                >
+                                  {t('auth.portalPreview')}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="btn btn--outline btn--sm doc-portal__btn-on-light"
@@ -1789,6 +1996,23 @@ export default function AreaReservada() {
           </div>
         </div>
       </section>
+
+      {useCpanelDocs && accessToken && (
+        <PortalCommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          accessToken={accessToken}
+          onNavigateToFolder={(folder) => setCurrentPath(folder)}
+        />
+      )}
+
+      <DocumentPreviewModal
+        open={preview.open}
+        title={preview.title}
+        blobUrl={preview.blobUrl}
+        fileType={preview.fileType}
+        onClose={closePreview}
+      />
     </div>
   )
 }

@@ -24,20 +24,43 @@ if (!is_file($configFile)) {
     ]);
 }
 
-/** @var array{supabase_url?:string,supabase_anon_key?:string,jwt_secret?:string,admin_email?:string,documentos_root?:string} $cfg */
+/** @var array{supabase_url?:string,supabase_anon_key?:string,jwt_secret?:string,admin_email?:string,documentos_root?:string,debug?:bool,taxonomy_auth_token?:string} $cfg */
 $cfg = require $configFile;
+
+$GLOBALS['N_DOC_DEBUG'] = !empty($cfg['debug']);
 
 $supabaseUrl = trim((string)($cfg['supabase_url'] ?? ''));
 $supabaseAnonKey = trim((string)($cfg['supabase_anon_key'] ?? ''));
 $jwtSecret = trim((string)($cfg['jwt_secret'] ?? ''));
 $taxonomyNodesUrl = trim((string)($cfg['taxonomy_nodes_url'] ?? ''));
-// Token partilhado com AT_Manut (servidor-cpanel/api/config.php: ATM_TAXONOMY_TOKEN).
-// Se nao estiver em config, usa o valor por omissao alinhado com o AT_Manut.
-$taxonomyAuthToken = trim((string)($cfg['taxonomy_auth_token'] ?? 'a8f3c19d-4b25-47e6-9f8a-3c2e1d0b7a95'));
+// Token partilhado com AT_Manut — OBRIGATORIO definir em producao; nunca usar valor por omissao no codigo.
+$taxonomyAuthToken = trim((string)($cfg['taxonomy_auth_token'] ?? ''));
 $adminEmail = strtolower(trim((string)($cfg['admin_email'] ?? 'comercial@navel.pt')));
 $root = isset($cfg['documentos_root']) && $cfg['documentos_root'] !== ''
     ? rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, (string)$cfg['documentos_root']), DIRECTORY_SEPARATOR)
     : __DIR__ . DIRECTORY_SEPARATOR . 'documentos-store';
+
+// ── Limites de upload (aplicacionais, independentes do php.ini) ────────────
+//   upload_max_bytes: default 100 MiB; override em documentos-api-config.php.
+//   upload_blocked_extensions: bloqueio de extensoes executaveis (defesa em
+//     profundidade face a `documentos-store/.htaccess` "deny all"). Bloqueia
+//     tambem double-extensions (ex.: `foo.pdf.php`).
+$uploadMaxBytes = (int)($cfg['upload_max_bytes'] ?? (100 * 1024 * 1024));
+if ($uploadMaxBytes < 1024) $uploadMaxBytes = 100 * 1024 * 1024;
+$blockedDefault = [
+    'php', 'phtml', 'phar', 'phps', 'php3', 'php4', 'php5', 'php7', 'php8',
+    'cgi', 'pl', 'py', 'rb',
+    'exe', 'dll', 'com', 'bat', 'cmd', 'sh', 'msi', 'scr',
+    'asp', 'aspx', 'jsp', 'jspx',
+    'htaccess', 'htpasswd',
+];
+$blockedConfigured = isset($cfg['upload_blocked_extensions']) && is_array($cfg['upload_blocked_extensions'])
+    ? array_values(array_filter(array_map(static function ($e) {
+        return strtolower(trim((string)$e, " \t\n\r\0\x0B."));
+    }, $cfg['upload_blocked_extensions']), 'strlen'))
+    : $blockedDefault;
+$GLOBALS['N_DOC_UPLOAD_MAX_BYTES'] = $uploadMaxBytes;
+$GLOBALS['N_DOC_UPLOAD_BLOCKED_EXT'] = $blockedConfigured;
 
 if (($supabaseUrl === '' || $supabaseAnonKey === '') && $jwtSecret === '') {
     n_doc_json(503, [
@@ -63,8 +86,15 @@ if ($bearer === null || $bearer === '') {
     n_doc_json(401, ['ok' => false, 'error' => 'missing_authorization']);
 }
 
+$GLOBALS['N_DOC_AT_INTEGRATION'] = false;
 $email = '';
-if ($supabaseUrl !== '' && $supabaseAnonKey !== '') {
+$atIntegrationBearer = trim((string)($cfg['at_integration_bearer'] ?? ''));
+if ($atIntegrationBearer !== '' && hash_equals($atIntegrationBearer, $bearer)) {
+    $GLOBALS['N_DOC_AT_INTEGRATION'] = true;
+    $email = strtolower(trim((string)($cfg['at_integration_actor_email'] ?? 'at-manut-integration@navel.pt')));
+}
+
+if ($email === '' && $supabaseUrl !== '' && $supabaseAnonKey !== '') {
     $email = n_doc_email_from_supabase_user($supabaseUrl, $supabaseAnonKey, $bearer);
 }
 
@@ -82,7 +112,7 @@ if ($email === '') {
     n_doc_json(401, ['ok' => false, 'error' => 'invalid_token']);
 }
 
-$isAdmin = ($email === $adminEmail);
+$isAdmin = !$GLOBALS['N_DOC_AT_INTEGRATION'] && ($email === $adminEmail);
 $permissions = n_doc_load_permissions($rootReal);
 $onedriveCfg = ondrv_config($cfg);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -99,7 +129,8 @@ try {
 
         if ($action === 'download') {
             n_doc_require_folder_permission($permissions, 'download', dirname($rel), $email, $isAdmin);
-            n_doc_action_download($rootReal, $rel);
+            $inline = (string)($_GET['inline'] ?? '') === '1';
+            n_doc_action_download($rootReal, $rel, $inline);
         }
 
         if ($action === 'search') {
@@ -107,19 +138,30 @@ try {
         }
 
         if ($action === 'taxonomy_nodes') {
+            n_doc_integration_forbidden();
+            n_doc_require_folder_permission($permissions, 'list', '', $email, $isAdmin);
             n_doc_action_taxonomy_nodes($rootReal, $taxonomyNodesUrl, $taxonomyAuthToken);
         }
 
         if ($action === 'sync_taxonomy_tree') {
+            n_doc_integration_forbidden();
             n_doc_require_folder_permission($permissions, 'upload', 'Assistencia Tecnica', $email, $isAdmin);
             n_doc_action_sync_taxonomy_tree($rootReal, $taxonomyNodesUrl, $taxonomyAuthToken, $email);
         }
 
         if ($action === 'machine_links') {
+            $folderRel = dirname($rel);
+            if ($folderRel === '.' || $folderRel === '') {
+                $folderRel = '';
+            } else {
+                $folderRel = str_replace('\\', '/', $folderRel);
+            }
+            n_doc_require_folder_permission($permissions, 'download', $folderRel, $email, $isAdmin);
             n_doc_action_machine_links_get($rootReal, $rel);
         }
 
         if ($action === 'reindex') {
+            n_doc_integration_forbidden();
             if (!$isAdmin) {
                 n_doc_json(403, ['ok' => false, 'error' => 'forbidden']);
             }
@@ -127,15 +169,18 @@ try {
         }
 
         if ($action === 'onedrive_status') {
+            n_doc_integration_forbidden();
             n_doc_action_onedrive_status($rootReal, $onedriveCfg, $isAdmin);
         }
 
         if ($action === 'onedrive_sync_preview') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($_GET['mountId'] ?? 'at'));
             n_doc_action_onedrive_sync_preview($rootReal, $onedriveCfg, $isAdmin, $mountId);
         }
 
         if ($action === 'onedrive_debug_mount') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($_GET['mountId'] ?? 'at'));
             $relPath = (string)($_GET['relPath'] ?? '');
             n_doc_action_onedrive_debug_mount($rootReal, $onedriveCfg, $email, $isAdmin, $mountId, $relPath);
@@ -160,6 +205,7 @@ try {
         $rel = n_doc_normalize_rel((string)($body['path'] ?? ''));
 
         if ($action === 'ensure_marker') {
+            n_doc_integration_forbidden();
             n_doc_require_folder_permission($permissions, 'upload', dirname($rel), $email, $isAdmin);
             n_doc_action_ensure_marker($rootReal, $rel);
             $newFolderRel = dirname($rel);
@@ -168,6 +214,7 @@ try {
         }
 
         if ($action === 'delete') {
+            n_doc_integration_forbidden();
             $mountHit = n_doc_onedrive_mount_for_rel($rel, $onedriveCfg);
             if ($mountHit !== null && ($mountHit['mount']['direction'] ?? '') === 'pull') {
                 n_doc_json(403, ['ok' => false, 'error' => 'deletion_disabled_onedrive', 'message' => 'A pasta ' . $mountHit['mount']['localFolder'] . ' esta sincronizada a partir do OneDrive (fonte de verdade). Elimine o ficheiro no OneDrive e a area reservada actualiza-se automaticamente.']);
@@ -181,6 +228,7 @@ try {
         }
 
         if ($action === 'delete_tree') {
+            n_doc_integration_forbidden();
             $mountHit = n_doc_onedrive_mount_for_rel($rel, $onedriveCfg);
             if ($mountHit !== null && ($mountHit['mount']['direction'] ?? '') === 'pull') {
                 n_doc_json(403, ['ok' => false, 'error' => 'deletion_disabled_onedrive', 'message' => 'A pasta ' . $mountHit['mount']['localFolder'] . ' esta sincronizada a partir do OneDrive (fonte de verdade). Elimine a pasta no OneDrive.']);
@@ -194,37 +242,44 @@ try {
         }
 
         if ($action === 'onedrive_connect_url') {
+            n_doc_integration_forbidden();
             n_doc_action_onedrive_connect_url($rootReal, $onedriveCfg, $email, $isAdmin);
         }
 
         if ($action === 'onedrive_sync_tick') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? ''));
             $chunkBudget = (int)($body['chunkBudgetSeconds'] ?? 0);
             n_doc_action_onedrive_sync_tick($rootReal, $onedriveCfg, $email, $isAdmin, $mountId, $chunkBudget);
         }
 
         if ($action === 'onedrive_trigger_sync') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? ''));
             n_doc_action_onedrive_trigger_sync($rootReal, $onedriveCfg, $email, $isAdmin, $mountId);
         }
 
         if ($action === 'onedrive_reset_local') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? 'comercial'));
             n_doc_action_onedrive_reset_local($rootReal, $onedriveCfg, $email, $isAdmin, $mountId);
         }
 
         if ($action === 'onedrive_push_full') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? 'at'));
             n_doc_action_onedrive_push_full($rootReal, $onedriveCfg, $email, $isAdmin, $mountId);
         }
 
         if ($action === 'onedrive_purge_orphans') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? 'at'));
             $dryRun = !empty($body['dryRun']);
             n_doc_action_onedrive_purge_orphans($rootReal, $onedriveCfg, $email, $isAdmin, $mountId, $dryRun);
         }
 
         if ($action === 'onedrive_force_reconcile') {
+            n_doc_integration_forbidden();
             $mountId = trim((string)($body['mountId'] ?? 'at'));
             $dryRun = !empty($body['dryRun']);
             $relPath = (string)($body['relPath'] ?? '');
@@ -251,7 +306,7 @@ try {
 } catch (InvalidArgumentException $e) {
     n_doc_json(400, ['ok' => false, 'error' => 'bad_path', 'message' => $e->getMessage()]);
 } catch (Throwable $e) {
-    n_doc_json(500, ['ok' => false, 'error' => 'server_error', 'message' => $e->getMessage()]);
+    n_doc_json(500, ['ok' => false, 'error' => 'server_error', 'message' => n_doc_public_exception_message($e)]);
 }
 
 function n_doc_json(int $code, array $data): void
@@ -260,6 +315,14 @@ function n_doc_json(int $code, array $data): void
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+function n_doc_public_exception_message(Throwable $e): string
+{
+    if (!empty($GLOBALS['N_DOC_DEBUG'])) {
+        return $e->getMessage();
+    }
+    return 'internal_error';
 }
 
 function n_doc_bearer_token(): ?string
@@ -371,6 +434,24 @@ function n_doc_normalize_rel(string $path): string
     return $path;
 }
 
+/** Ramo da biblioteca partilhado com AT_Manut (sem acentos — nome da pasta no disco). */
+function n_doc_path_is_assistencia_tecnica(string $relPath): bool
+{
+    $relPath = str_replace('\\', '/', trim($relPath, '/'));
+    $base = 'Assistencia Tecnica';
+    if ($relPath === $base) {
+        return true;
+    }
+    return str_starts_with($relPath, $base . '/');
+}
+
+function n_doc_integration_forbidden(): void
+{
+    if (!empty($GLOBALS['N_DOC_AT_INTEGRATION'])) {
+        n_doc_json(403, ['ok' => false, 'error' => 'forbidden_for_at_integration']);
+    }
+}
+
 function n_doc_join_root(string $rootReal, string $relNorm): string
 {
     if ($relNorm === '') {
@@ -393,23 +474,52 @@ function n_doc_assert_under_root(string $rootReal, string $abs): void
     }
 }
 
+/**
+ * Regras por omissao quando o ficheiro `.navel-permissions.json` ainda nao existe.
+ *
+ * POLITICA FAIL-CLOSED (seguranca): sem ficheiro de permissoes explicito,
+ * so o administrador tem acesso. Um `*` (wildcard) aqui significaria que
+ * qualquer utilizador autenticado (Supabase) obteria list/download/upload
+ * na raiz, o que e inseguro (ver auditoria 2026-04-17).
+ *
+ * Para activar acesso a parceiros, criar `.navel-permissions.json` dentro de
+ * `documentos-store/` a partir de `.navel-permissions.json.example` (ver
+ * docs/CPANEL-DOCUMENTOS.md).
+ */
+function n_doc_builtin_default_permissions(): array
+{
+    return [
+        'folders' => [
+            '' => [
+                'list'     => [],
+                'download' => [],
+                'upload'   => [],
+            ],
+        ],
+        '_defaultFailClosed' => true,
+    ];
+}
+
 /** @return array<string,mixed> */
 function n_doc_load_permissions(string $rootReal): array
 {
-    $default = ['folders' => []];
     $file = $rootReal . DIRECTORY_SEPARATOR . N_DOC_PERMISSIONS_FILE;
     if (!is_file($file)) {
-        return $default;
+        return n_doc_builtin_default_permissions();
     }
 
     $raw = @file_get_contents($file);
     if (!is_string($raw) || $raw === '') {
-        return $default;
+        return ['folders' => [], '_invalid' => true];
     }
 
     $parsed = json_decode($raw, true);
     if (!is_array($parsed) || !isset($parsed['folders']) || !is_array($parsed['folders'])) {
-        return $default;
+        return ['folders' => [], '_invalid' => true];
+    }
+
+    if ($parsed['folders'] === []) {
+        return ['folders' => [], '_invalid' => true];
     }
 
     return ['folders' => $parsed['folders']];
@@ -451,21 +561,24 @@ function n_doc_is_allowed(array $permissions, string $action, string $relPath, s
     if ($isAdmin) {
         return true;
     }
+    if (!empty($GLOBALS['N_DOC_AT_INTEGRATION'])) {
+        if (!n_doc_path_is_assistencia_tecnica($relPath)) {
+            return false;
+        }
+        return in_array($action, ['list', 'download', 'upload'], true);
+    }
+    if (!empty($permissions['_invalid'])) {
+        return false;
+    }
 
     $rule = n_doc_resolve_folder_rule($permissions, $relPath);
     if ($rule === null) {
-        if ($action === 'delete') {
-            return false;
-        }
-        return true;
+        return false;
     }
 
     $allowed = $rule[$action] ?? null;
     if (!is_array($allowed)) {
-        if ($action === 'delete') {
-            return false;
-        }
-        return true;
+        return false;
     }
 
     return n_doc_value_in_list($allowed, $email);
@@ -673,7 +786,18 @@ function n_doc_action_list(string $rootReal, string $rel, array $permissions, st
     n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'items' => $items]);
 }
 
-function n_doc_action_download(string $rootReal, string $rel): void
+function n_doc_mime_allows_inline(string $mime): bool
+{
+    if ($mime === 'application/pdf') {
+        return true;
+    }
+    if ($mime !== '' && strncmp($mime, 'image/', 6) === 0) {
+        return true;
+    }
+    return false;
+}
+
+function n_doc_action_download(string $rootReal, string $rel, bool $inline = false): void
 {
     if ($rel === '') {
         n_doc_json(400, ['ok' => false, 'error' => 'path_required']);
@@ -696,7 +820,9 @@ function n_doc_action_download(string $rootReal, string $rel): void
 
     $basename = basename($abs);
     header('Content-Type: ' . $mime);
-    header('Content-Disposition: attachment; filename="' . rawurlencode($basename) . '"; filename*=UTF-8\'\'' . rawurlencode($basename));
+    $useInline = $inline && n_doc_mime_allows_inline($mime);
+    $disp = $useInline ? 'inline' : 'attachment';
+    header('Content-Disposition: ' . $disp . '; filename="' . rawurlencode($basename) . '"; filename*=UTF-8\'\'' . rawurlencode($basename));
     header('Content-Length: ' . (string)filesize($abs));
     readfile($abs);
     exit;
@@ -722,6 +848,29 @@ function n_doc_action_upload(string $rootReal, array $permissions, string $email
     $name = basename(str_replace('\\', '/', trim((string)($_FILES['file']['name'] ?? ''))));
     if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '..')) {
         n_doc_json(400, ['ok' => false, 'error' => 'invalid_name']);
+    }
+
+    // Limite de tamanho aplicacional (complementa limits do php.ini).
+    $maxBytes = (int)($GLOBALS['N_DOC_UPLOAD_MAX_BYTES'] ?? (100 * 1024 * 1024));
+    $reportedSize = (int)($_FILES['file']['size'] ?? 0);
+    $actualSize = is_string($tmp) && is_file($tmp) ? (int)@filesize($tmp) : 0;
+    $effectiveSize = max($reportedSize, $actualSize);
+    if ($effectiveSize > $maxBytes) {
+        n_doc_json(413, ['ok' => false, 'error' => 'file_too_large', 'maxBytes' => $maxBytes]);
+    }
+
+    // Bloqueia extensoes executaveis (inclui double-extension: foo.pdf.php).
+    $blocked = (array)($GLOBALS['N_DOC_UPLOAD_BLOCKED_EXT'] ?? []);
+    if (!empty($blocked)) {
+        $parts = explode('.', strtolower($name));
+        if (count($parts) > 1) {
+            array_shift($parts); // descarta o base name
+            foreach ($parts as $ext) {
+                if ($ext !== '' && in_array($ext, $blocked, true)) {
+                    n_doc_json(400, ['ok' => false, 'error' => 'blocked_extension', 'extension' => $ext]);
+                }
+            }
+        }
     }
 
     $dirAbs = n_doc_join_root($rootReal, $relDir);
@@ -771,6 +920,20 @@ function n_doc_action_upload(string $rootReal, array $permissions, string $email
     $relPath = ($relDir !== '' ? $relDir . '/' : '') . basename($dest);
     $machineLinks = n_doc_load_machine_links($rootReal);
     n_doc_index_upsert_document($rootReal, $relPath, $metaState, $machineLinks, $email);
+
+    $linkMachineIdsRaw = trim((string)($_POST['linkMachineIds'] ?? ''));
+    if ($linkMachineIdsRaw !== '') {
+        $linkDecoded = json_decode($linkMachineIdsRaw, true);
+        if (is_array($linkDecoded)) {
+            $linkBody = [
+                'machineIds' => $linkDecoded,
+                'source' => (string)($_POST['machineLinkSource'] ?? 'MANUAL'),
+                'confidence' => $_POST['machineLinkConfidence'] ?? null,
+            ];
+            n_doc_store_machine_links_row($rootReal, $relPath, $linkBody, $email);
+        }
+    }
+
     @chmod($dest, 0644);
 
     $onedriveMirror = null;
@@ -793,7 +956,7 @@ function n_doc_action_upload(string $rootReal, array $permissions, string $email
                 $onedriveMirror = ['ok' => true, 'mountId' => $mount['id'], 'id' => (string)($uploaded['id'] ?? '')];
                 ondrv_log($rootReal, 'upload_mirrored[' . $mount['id'] . ']: ' . $relInsideMount . ' by=' . $email . ' size=' . (int)filesize($dest));
             } catch (Throwable $e) {
-                $onedriveMirror = ['ok' => false, 'mountId' => $mount['id'], 'error' => $e->getMessage()];
+                $onedriveMirror = ['ok' => false, 'mountId' => $mount['id'], 'error' => 'onedrive_mirror_failed'];
                 ondrv_log($rootReal, 'upload_mirror_failed[' . $mount['id'] . ']: ' . $relInsideMount . ' err=' . $e->getMessage());
             }
         }
@@ -948,6 +1111,42 @@ function n_doc_action_set_metadata(string $rootReal, string $rel, array $metadat
     ]);
 }
 
+/**
+ * Pastas primeiro; ficheiros por extensão (A–Z), depois caminho.
+ *
+ * @param array<int,array<string,mixed>> $results
+ */
+function n_doc_search_sort_results(array &$results): void
+{
+    usort($results, function (array $a, array $b): int {
+        $af = !empty($a['isFolder']);
+        $bf = !empty($b['isFolder']);
+        if ($af !== $bf) {
+            return $af ? -1 : 1;
+        }
+        if ($af) {
+            return strcasecmp((string)($a['path'] ?? ''), (string)($b['path'] ?? ''));
+        }
+        $ext = static function (array $row): string {
+            $n = strtolower((string)($row['name'] ?? ''));
+            if ($n === '') {
+                $n = strtolower(basename((string)($row['path'] ?? '')));
+            }
+            $p = strrpos($n, '.');
+
+            return $p === false ? '' : substr($n, $p + 1);
+        };
+        $ea = $ext($a);
+        $eb = $ext($b);
+        $c = strcmp($ea, $eb);
+        if ($c !== 0) {
+            return $c;
+        }
+
+        return strcasecmp((string)($a['path'] ?? ''), (string)($b['path'] ?? ''));
+    });
+}
+
 function n_doc_action_search(string $rootReal, array $permissions, string $email, bool $isAdmin): void
 {
     $q = strtolower(trim((string)($_GET['q'] ?? '')));
@@ -963,29 +1162,104 @@ function n_doc_action_search(string $rootReal, array $permissions, string $email
         'notes' => $_GET['notes'] ?? '',
     ]);
     $machineId = trim((string)($_GET['machineId'] ?? ''));
-    $results = [];
+    $hasMetaFilter = false;
+    foreach ($filters as $fv) {
+        if ($fv !== '') {
+            $hasMetaFilter = true;
+            break;
+        }
+    }
+
+    if ($q === '') {
+        n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'documentTypes' => N_DOC_DOCUMENT_TYPES, 'items' => []]);
+
+        return;
+    }
+
     $index = n_doc_load_index($rootReal);
     $documents = is_array($index['documents'] ?? null) ? $index['documents'] : [];
-    foreach ($documents as $rel => $row) {
-        $relPath = (string)$rel;
-        $folderRel = dirname($relPath);
+    $allMachineLinks = n_doc_load_machine_links($rootReal);
+    $byPath = [];
+
+    try {
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($rootReal, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+    } catch (Throwable $e) {
+        n_doc_json(500, ['ok' => false, 'error' => 'search_unreadable']);
+
+        return;
+    }
+
+    foreach ($it as $fi) {
+        if (!$fi instanceof SplFileInfo) {
+            continue;
+        }
+        $abs = $fi->getPathname();
+        $rel = str_replace('\\', '/', ltrim(str_replace($rootReal, '', $abs), DIRECTORY_SEPARATOR));
+        $base = $fi->getFilename();
+        if ($base !== '' && $base[0] === '.' && $base !== N_DOC_MARKER) {
+            continue;
+        }
+
+        if ($fi->isDir()) {
+            if ($hasMetaFilter) {
+                continue;
+            }
+            if (!n_doc_is_allowed($permissions, 'list', $rel, $email, $isAdmin)) {
+                continue;
+            }
+            $pathLower = strtolower($rel);
+            $baseLower = strtolower($base);
+            if (!str_contains($pathLower, $q) && !str_contains($baseLower, $q)) {
+                continue;
+            }
+            $byPath[$rel] = [
+                'path' => $rel,
+                'name' => $base,
+                'size' => 0,
+                'currentVersion' => 0,
+                'updatedAt' => '',
+                'metadata' => n_doc_normalize_metadata([]),
+                'machineLinks' => ['machineIds' => [], 'source' => '', 'confidence' => null, 'updatedAt' => '', 'updatedBy' => ''],
+                'isFolder' => true,
+            ];
+
+            continue;
+        }
+
+        if (!$fi->isFile()) {
+            continue;
+        }
+        if ($base === N_DOC_MARKER || str_ends_with($base, '.meta.json')) {
+            continue;
+        }
+        $folderRel = dirname($rel);
         if ($folderRel === '.') {
             $folderRel = '';
         }
         if (!n_doc_is_allowed($permissions, 'download', $folderRel, $email, $isAdmin)) {
             continue;
         }
-        $name = (string)($row['fileName'] ?? basename($relPath));
-        $meta = n_doc_normalize_metadata($row['metadata'] ?? []);
-        if ($q !== '' && !str_contains(strtolower($name), $q)) {
+        $pathLower = strtolower($rel);
+        $baseLower = strtolower($base);
+        if (!str_contains($pathLower, $q) && !str_contains($baseLower, $q)) {
             continue;
         }
+
+        $idxRow = $documents[$rel] ?? null;
+        if ($idxRow !== null) {
+            $meta = n_doc_normalize_metadata($idxRow['metadata'] ?? []);
+        } else {
+            $meta = n_doc_normalize_metadata(n_doc_load_file_metadata($abs)['metadata'] ?? []);
+        }
         $filterOk = true;
-        foreach ($filters as $k => $v) {
-            if ($v === '') {
+        foreach ($filters as $fk => $fv) {
+            if ($fv === '') {
                 continue;
             }
-            if (!str_contains(strtolower((string)($meta[$k] ?? '')), strtolower($v))) {
+            if (!str_contains(strtolower((string)($meta[$fk] ?? '')), strtolower($fv))) {
                 $filterOk = false;
                 break;
             }
@@ -993,26 +1267,47 @@ function n_doc_action_search(string $rootReal, array $permissions, string $email
         if (!$filterOk) {
             continue;
         }
-        $rowMachineLinks = is_array($row['machineLinks'] ?? null)
-            ? $row['machineLinks']
-            : ['machineIds' => [], 'source' => '', 'confidence' => null, 'updatedAt' => '', 'updatedBy' => ''];
+
+        $rowMachineLinks = ['machineIds' => [], 'source' => '', 'confidence' => null, 'updatedAt' => '', 'updatedBy' => ''];
+        if ($idxRow !== null && is_array($idxRow['machineLinks'] ?? null)) {
+            $rowMachineLinks = $idxRow['machineLinks'];
+        } elseif (is_array($allMachineLinks[$rel] ?? null)) {
+            $rowMachineLinks = $allMachineLinks[$rel];
+        }
         if ($machineId !== '') {
             $linkedMachines = $rowMachineLinks['machineIds'] ?? [];
             if (!is_array($linkedMachines) || !in_array($machineId, array_map('strval', $linkedMachines), true)) {
                 continue;
             }
         }
-        $results[] = [
-            'path' => $relPath,
-            'name' => $name,
-            'size' => (int)($row['fileSize'] ?? 0),
-            'currentVersion' => (int)($row['currentVersion'] ?? 1),
-            'updatedAt' => (string)($row['updatedAt'] ?? ''),
-            'metadata' => $meta,
-            'machineLinks' => $rowMachineLinks,
-        ];
+
+        if ($idxRow !== null) {
+            $byPath[$rel] = [
+                'path' => $rel,
+                'name' => (string)($idxRow['fileName'] ?? $base),
+                'size' => (int)($idxRow['fileSize'] ?? (is_file($abs) ? @filesize($abs) : 0)),
+                'currentVersion' => (int)($idxRow['currentVersion'] ?? 1),
+                'updatedAt' => (string)($idxRow['updatedAt'] ?? ''),
+                'metadata' => $meta,
+                'machineLinks' => $rowMachineLinks,
+                'isFolder' => false,
+            ];
+        } else {
+            $byPath[$rel] = [
+                'path' => $rel,
+                'name' => $base,
+                'size' => is_file($abs) ? (int)@filesize($abs) : 0,
+                'currentVersion' => 1,
+                'updatedAt' => '',
+                'metadata' => $meta,
+                'machineLinks' => $rowMachineLinks,
+                'isFolder' => false,
+            ];
+        }
     }
 
+    $results = array_values($byPath);
+    n_doc_search_sort_results($results);
     n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'documentTypes' => N_DOC_DOCUMENT_TYPES, 'items' => $results]);
 }
 
@@ -1205,7 +1500,13 @@ function n_doc_action_machine_links_get(string $rootReal, string $rel): void
     n_doc_json(200, ['ok' => true, 'path' => $rel, 'machineLinks' => $row]);
 }
 
-function n_doc_action_machine_links_set(string $rootReal, string $rel, array $body, string $email): void
+/**
+ * Grava vínculos máquina ↔ ficheiro e actualiza o índice canónico.
+ *
+ * @param array{machineIds?:mixed,source?:mixed,confidence?:mixed} $body
+ * @return array<string,mixed>
+ */
+function n_doc_store_machine_links_row(string $rootReal, string $rel, array $body, string $email): array
 {
     if ($rel === '') {
         n_doc_json(400, ['ok' => false, 'error' => 'path_required']);
@@ -1222,6 +1523,9 @@ function n_doc_action_machine_links_set(string $rootReal, string $rel, array $bo
         }
     }
     $machineIds = array_values(array_unique($machineIds));
+    if (count($machineIds) > 100) {
+        n_doc_json(400, ['ok' => false, 'error' => 'too_many_machine_ids']);
+    }
     $source = strtoupper(trim((string)($body['source'] ?? 'MANUAL')));
     if ($source !== 'MANUAL' && $source !== 'AUTO') {
         $source = 'MANUAL';
@@ -1246,24 +1550,22 @@ function n_doc_action_machine_links_set(string $rootReal, string $rel, array $bo
         $state = n_doc_load_file_metadata($abs);
         n_doc_index_upsert_document($rootReal, $rel, $state, $links, $email);
     }
-    n_doc_json(200, ['ok' => true, 'path' => $rel, 'machineLinks' => $links[$rel]]);
+    return $links[$rel];
+}
+
+function n_doc_action_machine_links_set(string $rootReal, string $rel, array $body, string $email): void
+{
+    $row = n_doc_store_machine_links_row($rootReal, $rel, $body, $email);
+    n_doc_json(200, ['ok' => true, 'path' => $rel, 'machineLinks' => $row]);
 }
 
 /** @return array<int,array<string,mixed>> */
 function n_doc_load_taxonomy_nodes(string $rootReal, string $taxonomyNodesUrl, string $taxonomyAuthToken): array
 {
+    // Nunca construir URL a partir de HTTP_HOST (risco SSRF / Host header). So URLs explicitas em config.
     $candidateUrls = [];
     if ($taxonomyNodesUrl !== '') {
         $candidateUrls[] = $taxonomyNodesUrl;
-    } else {
-        $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
-        if ($host !== '') {
-            // Endpoint oficial AT_Manut (reaproveita config.php + db.php).
-            $candidateUrls[] = 'https://' . $host . '/api/taxonomy-nodes.php';
-            // Fallbacks legacy.
-            $candidateUrls[] = 'https://' . $host . '/manut/api/taxonomy/nodes';
-            $candidateUrls[] = 'https://' . $host . '/api/taxonomy/nodes';
-        }
     }
 
     if (!empty($candidateUrls) && function_exists('curl_init')) {
@@ -1548,12 +1850,37 @@ function n_doc_action_onedrive_status(string $rootReal, ?array $onedriveCfg, boo
             'configured' => false,
             'connected' => false,
             'mounts' => [],
-            'hint' => 'Defina microsoft_tenant_id, microsoft_client_id, microsoft_client_secret e microsoft_redirect_uri em documentos-api-config.php.',
+            'canManage' => $isAdmin,
+            'hint' => $isAdmin
+                ? 'Defina microsoft_tenant_id, microsoft_client_id, microsoft_client_secret e microsoft_redirect_uri em documentos-api-config.php.'
+                : '',
         ]);
     }
     $summary = ondrv_status_summary_multi($rootReal, $onedriveCfg);
     $summary['ok'] = true;
     $summary['canManage'] = $isAdmin;
+
+    // Seguranca: informacao tecnica de infra (UPN, IDs internos, nomes reais dos mounts
+    // na OneDrive, estatisticas de sync) e util para operacao mas nao deve vazar para
+    // utilizadores nao-admin. Para nao-admin devolvemos apenas o minimo para a UI
+    // saber que ha OneDrive ligado e quais localFolders estao activos.
+    if (!$isAdmin) {
+        $summary['userPrincipalName'] = '';
+        $summary['displayName'] = '';
+        $summary['connectedAt'] = 0;
+        if (isset($summary['mounts']) && is_array($summary['mounts'])) {
+            foreach ($summary['mounts'] as $mid => $info) {
+                if (!is_array($info)) continue;
+                $summary['mounts'][$mid] = [
+                    'id'           => $info['id'] ?? $mid,
+                    'localFolder'  => $info['localFolder'] ?? '',
+                    'direction'    => $info['direction'] ?? '',
+                    'rootResolved' => (bool)($info['rootResolved'] ?? false),
+                ];
+            }
+        }
+    }
+
     n_doc_json(200, $summary);
 }
 

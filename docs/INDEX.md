@@ -9,6 +9,7 @@
 ## Essencial
 - `README.md` — comandos e visão geral
 - `DEPLOY.md` — publicação cPanel
+- **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** — **upload automático para cPanel** (FTPS/SFTP/UAPI com dry-run e incremental — `npm run deploy:probe` / `deploy:dry` / `deploy:all`)
 - **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`** — **checklist obrigatória** (build→zip, PHP, OneDrive, i18n, erros a evitar)
 - `docs/SETUP.md` — setup local completo
 - `docs/TROUBLESHOOTING.md` — resolução de problemas
@@ -24,6 +25,9 @@
 - `docs/SEO.md` — otimização SEO
 - `docs/RESPONSIVIDADE.md` — padrões responsive
 - `docs/OTIMIZACOES.md` — performance/build
+- `docs/ESTRUTURA.md` — mapa das pastas e ficheiros principais (`src/`, `public/`, `scripts/`)
+- **`docs/ROADMAP-SHAREPOINT.md`** — roadmap Área Reservada ↔ OneDrive ↔ AT_Manut (Fase C: fundações navel-site com `at_integration_bearer`; UI **`MaquinaDetalhe` / `data.php` no AT_Manut** ainda por implementar no repo do AT)
+- **`docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md`** — contrato biblioteca única; §10 proxy AT + token serviço
 
 ## Regra de ouro
 Antes de fechar uma fase:

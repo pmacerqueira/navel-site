@@ -2,18 +2,27 @@
   Navel — Checklist Publicação cPanel
 ========================================
 
-ANTES
------
-[ ] Executar OPTIMIZAR.bat (build ja corre merge privacy+rgpd p/ src/locales)
+PRIMÁRIO (automatizado, rápido)
+-------------------------------
+[ ] npm run build  (actualiza dist/, inclui merge privacy+rgpd p/ src/locales)
+[ ] npm run deploy:dry  (ver o que vai ser enviado; nada escreve)
+[ ] npm run deploy:all -- --yes  (envia site + PHP via FTPS incremental)
+
+Setup prévio (uma vez): docs/DEPLOY-AUTOMATICO-CPANEL.md
+Ficheiro de credenciais: .env.cpanel (gitignored, no teu PC)
+
+FALLBACK (File Manager manual)
+------------------------------
+[ ] Executar OPTIMIZAR.bat (build + ZIP)
 [ ] Confirmar que navel-publicar.zip foi criado
 
-cPanel
-------
+cPanel (File Manager)
+---------------------
 [ ] File Manager → public_html
 [ ] Upload navel-publicar.zip → Extract → Apagar ZIP
 
-DEPOIS
-------
+DEPOIS (ambos os fluxos)
+------------------------
 [ ] https://navel.pt (página principal)
 [ ] https://navel.pt/contacto (menu, formulário e F5 sem 404)
 [ ] https://navel.pt/privacidade (PT e EN: sem chaves tipo privacy.xxx) e /rgpd e /condicoes-gerais (F5 = SPA)

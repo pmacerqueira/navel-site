@@ -1,0 +1,19 @@
+{
+  "folders": {
+    "": {
+      "list": ["*"],
+      "download": ["*"],
+      "upload": ["*"]
+    },
+    "Comercial": {
+      "list": ["*"],
+      "download": ["*"],
+      "upload": ["*"]
+    },
+    "Assistencia Tecnica": {
+      "list": ["*"],
+      "download": ["*"],
+      "upload": ["*"]
+    }
+  }
+}

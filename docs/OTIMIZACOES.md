@@ -25,7 +25,8 @@ O que está otimizado na versão atual (performance, build, publicação).
 
 ## Publicação
 
-- **OPTIMIZAR.bat** — pipeline único: thumbnails → verificar imagens → otimizar imagens → build → `navel-publicar.zip`
+- **Pipeline primário (FTPS automatizado):** `npm run deploy:all -- --yes` (ou `deploy:site` / `deploy:php` / `deploy:file`). Incremental por SHA-1, dry-run disponível em `deploy:dry`. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`. Exclusivo do `navel-site` (fence `enforceProjectFence`).
+- **Fallback manual (`OPTIMIZAR.bat`):** pipeline único — thumbnails → verificar imagens → otimizar imagens → build → `navel-publicar.zip` para upload no File Manager cPanel.
 - **Build (`npm run build`):** hook **`prebuild`** executa **`merge-locales`** (injeta `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` em `src/locales`) antes do Vite — evita publicar `/privacidade` com chaves cruas tipo `privacy.introWho` se alguém editou só os JSON auxiliares e não fundiu.
 - Favicon gerado no build a partir do logo
 - BrowserRouter: `.htaccess` com fallback para `index.html`, HTTPS e www → canónico

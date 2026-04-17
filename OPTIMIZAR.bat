@@ -14,6 +14,14 @@ REM  5. Build de producao - npm run build (inclui prebuild: merge privacy + rgpd
 REM  6. Verificar build (index.html, assets; pos-deploy: /privacidade, /rgpd, /condicoes-gerais)
 REM  7. Criar navel-publicar.zip (conteudo completo de dist) para upload no cPanel
 REM
+REM  ALTERNATIVA AUTOMATIZADA (desde 0.2.5, preferida):
+REM  Em vez de abrir o File Manager, usar o deploy FTPS:
+REM      npm run build
+REM      npm run deploy:dry          (ver o que ia enviar)
+REM      npm run deploy:all -- --yes (enviar site + PHP, incremental)
+REM  Setup uma vez em docs/DEPLOY-AUTOMATICO-CPANEL.md.
+REM  Este BAT continua a gerar o ZIP para fallback / backup.
+REM
 REM  Actualizar cartoes Beta (Bolas) e Telwin: docs/CATALOGOS-BOLAS-BETA-TELWIN.md
 REM  CGVS (condicoes gerais): texto em src/data/cgvs-pt.js, rota /condicoes-gerais — ver PUBLICAR-CHECKLIST.txt
 REM
@@ -129,11 +137,18 @@ echo Ficheiro criado: navel-publicar.zip
 echo NOTA: pasta catalogos/ excluida (ja esta no cPanel).
 echo       Para incluir catalogos: node scripts/make-zip.js --with-catalogos
 echo.
-echo No cPanel:
-echo   1. File Manager - public_html
-echo   2. Upload - navel-publicar.zip
-echo   3. Botao direito no ZIP - Extract
-echo   4. Eliminar o ZIP apos extrair
+echo Para publicar, escolher UMA das opcoes:
+echo.
+echo   [Automatico / FTPS - preferido]
+echo     npm run deploy:dry           (pre-visualizar)
+echo     npm run deploy:all -- --yes  (site + PHP incremental)
+echo     (requer .env.cpanel - ver docs/DEPLOY-AUTOMATICO-CPANEL.md)
+echo.
+echo   [Manual / File Manager - fallback]
+echo     1. cPanel - File Manager - public_html
+echo     2. Upload - navel-publicar.zip
+echo     3. Botao direito no ZIP - Extract
+echo     4. Eliminar o ZIP apos extrair
 echo.
 echo Ver DEPLOY.md e PUBLICAR-CHECKLIST.txt para mais detalhes.
 echo Apos o upload, testar tambem: /privacidade /rgpd /condicoes-gerais (F5 = SPA OK).

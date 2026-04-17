@@ -50,13 +50,31 @@ npm run build
 npm run preview
 ```
 
-Para publicação padrão no cPanel, usar `OPTIMIZAR.bat`.
+Para publicação no cPanel:
+- **Automatizado (preferido):** `npm run deploy:all -- --yes` após `npm run build`.
+  Setup único em **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** (`.env.cpanel` + conta FTP dedicada).
+- **Manual:** `OPTIMIZAR.bat` → upload do ZIP no File Manager.
 
 ---
 
-## 6) Problemas comuns
+## 6) Setup do deploy automático (opcional, uma vez)
+
+Se quiseres usar o `npm run deploy:*` em vez do File Manager manual:
+
+1. Seguir **`docs/DEPLOY-AUTOMATICO-CPANEL.md`**:
+   - Criar conta FTP dedicada em cPanel → FTP Accounts (ex.: `deploy@navel.pt`,
+     restrita a `/public_html`)
+   - Copiar `.env.cpanel.example` → `.env.cpanel` e preencher
+2. Testar com `npm run deploy:probe` (não escreve nada).
+3. Primeiro deploy: `npm run deploy:dry` → `npm run deploy:all -- --yes`.
+
+---
+
+## 7) Problemas comuns
 
 - **Erro de módulo/dependência:** correr `npm install`.
 - **Falha Supabase:** rever `docs/SUPABASE.md` e variáveis no `.env`.
 - **Assets em falta:** confirmar pipeline de otimização e paths em `public/images/`.
+- **Deploy automático falha:** ver troubleshooting em
+  `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
 

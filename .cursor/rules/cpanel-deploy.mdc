@@ -1,0 +1,145 @@
+---
+description: Build, deploy e upload para cPanel (www.navel.pt) — usar pipeline automatizado FTPS em vez de File Manager manual. EXCLUSIVO do navel-site.
+alwaysApply: true
+---
+
+# Build e upload cPanel — fluxo automatizado (FTPS)
+
+## ⚠️ Âmbito — apenas `navel-site` / `www.navel.pt`
+
+Este pipeline (`npm run deploy:*`, scripts em `navel-site/scripts/cpanel-*.mjs`,
+ficheiro `.env.cpanel`) **é exclusivo do projecto `navel-site`** que publica
+em `www.navel.pt` num cPanel.
+
+**Não aplicar** noutros projectos do workspace NAVEL, que têm stacks e
+destinos de deploy próprios:
+
+| Projecto | Destino | Ferramenta correcta |
+|---|---|---|
+| `navel-site` | cPanel `www.navel.pt` | **este pipeline** (`npm run deploy:*`) |
+| `AT_Manut` | cPanel `public_html/manut/` | `npm run build:zip` + upload do ZIP |
+| `app-stocks-next` | **Vercel** | Vercel CLI / git push (não cPanel!) |
+| `app-ftecnicas` | Desktop/Electron | Build local |
+| `navel-propostas` | Servidor local / deploy próprio | Seguir `AGENTS.md` do repo |
+
+Se o utilizador estiver a trabalhar num desses outros projectos e pedir
+"deploy" ou "upload", **não usar** `npm run deploy:*`. Seguir a ferramenta
+do projecto em questão (ver `.cursor/rules/navel-workspace.mdc`).
+
+**Guard runtime:** os scripts têm `enforceProjectFence()` que aborta se:
+- Não forem executados a partir de `navel-site/`
+- `CPANEL_HOST` / `CPANEL_FTP_HOST` / `CPANEL_SFTP_HOST` não pertencer
+  ao domínio `navel.pt`
+
+Isto previne que uma cópia acidental do `.env.cpanel` ou do script para
+outro repo cause uploads para o servidor errado.
+
+---
+
+## Quando aplicar (dentro de `navel-site`)
+
+Quando o utilizador pedir **build**, **zip**, **pacote cPanel**, **deploy**,
+**publicar**, **upload** ou **enviar ficheiros para o cPanel**, usar o
+pipeline automatizado descrito abaixo em vez de dar instruções para o
+File Manager manual. O utilizador **não** é programador e **não** quer
+arrastar ficheiros manualmente.
+
+## Pré-requisitos (verificar uma vez por sessão)
+
+- `.env.cpanel` existe (está no `.gitignore`, nunca entra no repo).
+- `npm run deploy:probe` deve passar em FTPS antes do primeiro deploy da
+  sessão. Se falhar, **parar** e reportar o erro ao utilizador em vez
+  de improvisar.
+
+## Fluxo por tipo de pedido
+
+### "envia este ficheiro" / "sobe este PHP"
+
+1. `node scripts/cpanel-deploy.mjs --file=<caminho> --dry`
+2. Se o ficheiro **não** estiver na [lista de sensíveis](#ficheiros-sensíveis)
+   e a cache indicar que mudou, executar directamente com `--yes`.
+3. Se estiver sensível, mostrar dry-run e **pedir confirmação explícita**
+   antes de enviar.
+
+### "envia os PHP" / "actualiza PHP"
+
+1. `npm run deploy:php -- --dry`.
+2. Listar ao utilizador os ficheiros que iam ser enviados e
+   **destacar** os sensíveis presentes.
+3. Se houver sensíveis, pedir confirmação explícita; caso contrário,
+   executar `npm run deploy:php -- --yes`.
+
+### "build e publica" / "publica no cpanel" / "upload site"
+
+1. `npm run build` (inclui `prebuild` → `merge-locales`).
+2. `npm run deploy:dry` (mostra `--site` + `--php`).
+3. Mostrar o resumo ao utilizador: N ficheiros, MB totais, sensíveis a ir.
+4. **Pedir confirmação** antes de `npm run deploy:all -- --yes`.
+5. **Nunca** incluir `--with-catalogos` sem pedido explícito (+200 MB).
+
+### "publica com catálogos" / "enviar catálogos novos"
+
+1. Com `git status` identificar se há PDFs novos em `public/catalogos/`.
+2. `npm run build` → `node scripts/cpanel-deploy.mjs --site --with-catalogos --dry`.
+3. Pedir confirmação (volume alto, avisar o tamanho estimado).
+4. Se confirmar: acrescentar `--yes`.
+
+### "envia os ZIPs do cpanel:pack"
+
+1. Se `../cpanel-upload/` não existe: `npm run cpanel:pack` primeiro.
+2. `npm run deploy:zips -- --dry` (vai para `_deploy-zips/` no servidor).
+3. Enviar com `--yes` (ZIPs são auto-contidos e seguros).
+
+## Ficheiros sensíveis (exigem confirmação explícita)
+
+- **`public/documentos-api-config.php`** — contém `jwt_secret` do Supabase,
+  URL do projeto, `onedrive_cron_token`, `at_integration_bearer`.
+  Antes de enviar, confirmar com o utilizador que o `.env` local está
+  alinhado com a config que está em produção.
+- **`public/.htaccess`** e `.htaccess` dentro de `dist/` — rewrite rules
+  que podem partir o site se divergirem da produção.
+- **`public/documentos-store/.navel-permissions.json`** (se existir) —
+  ACL da área reservada.
+- Qualquer ficheiro fora de `public/`, `dist/` ou `../cpanel-upload/`.
+
+## Regras de segurança
+
+- **Nunca** commitar `.env.cpanel`, `.env.cpanel.local` ou
+  `scripts/.cpanel-deploy-cache.json`.
+- **Nunca** ecoar a password FTP em logs ou output.
+- **Sempre** fazer dry-run primeiro quando o pedido envolver `--all` ou
+  `--site` completo. Para um único ficheiro pouco sensível já editado,
+  pode ir directo a `--yes` (a cache incremental protege contra envios
+  redundantes).
+- Se o utilizador pedir para ignorar a cache: usar `--force` e confirmar
+  que compreende que vai re-enviar tudo.
+
+## Ordens canónicas (resumo rápido)
+
+| Pedido | Comando |
+|---|---|
+| Testar conectividade | `npm run deploy:probe` |
+| Ver o que ia enviar | `npm run deploy:dry` |
+| 1 ficheiro | `node scripts/cpanel-deploy.mjs --file=public/XXX.php --yes` |
+| Só PHP | `npm run deploy:php -- --yes` |
+| Só site | `npm run build && npm run deploy:site -- --yes` |
+| Site + PHP | `npm run build && npm run deploy:all -- --yes` |
+| + catálogos PDF | acrescentar `--with-catalogos` |
+| Forçar re-envio | acrescentar `--force` |
+
+## Fallback (legacy)
+
+`npm run cpanel:pack` continua disponível para gerar os ZIPs na pasta
+irmã `../cpanel-upload/` — útil para:
+- Enviar aos parceiros AT_Manut / auditoria.
+- Fazer backup local antes de alteração grande.
+- Recuperar depois de um deploy mal sucedido.
+
+**Não** é o caminho primário de publicação desde `0.2.5`.
+
+## Continuidade entre agentes
+
+- Documento canónico: `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
+- Cache de hashes: `scripts/.cpanel-deploy-cache.json` (gitignored).
+- Credenciais: só em `.env.cpanel` local do utilizador.
+- Não prometer "zero erros"; seguir sempre `dry-run → confirmar → `--yes``.

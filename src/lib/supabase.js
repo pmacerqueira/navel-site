@@ -12,3 +12,19 @@ if (!url || !anonKey) {
 }
 
 export const supabase = url && anonKey ? createClient(url, anonKey) : null
+
+/** Remove tokens Supabase do armazenamento (síncrono). Usado antes de hard refresh forçado pelo browser. */
+export function clearSupabaseAuthStorageSync() {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      const toRemove = []
+      for (let i = 0; i < store.length; i++) {
+        const k = store.key(i)
+        if (k && (k.startsWith('sb-') || k.includes('supabase'))) toRemove.push(k)
+      }
+      toRemove.forEach((k) => store.removeItem(k))
+    } catch {
+      /* ignore */
+    }
+  }
+}

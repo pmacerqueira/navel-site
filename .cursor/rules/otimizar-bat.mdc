@@ -8,12 +8,14 @@ alwaysApply: true
 > **Ambiente:** PC de desenvolvimento com RAM/CPU amplos (ex. 32 GB RAM). Builds e scripts podem correr sem auto-limitação por memória.
 
 
-Quando o utilizador pedir **otimizações**, **preparação para publicação** ou **publicação no cPanel**, deves:
+Quando o utilizador pedir **otimizações** ou **preparação para publicação**, deves:
 
 1. Executar as tarefas solicitadas (build, verificação de traduções, links, documentação, etc.)
 2. **Atualizar o ficheiro `OPTIMIZAR.bat`** com quaisquer novos passos que possam ser automatizados
 
-O `OPTIMIZAR.bat` é o pipeline único que o utilizador executa para ter o site pronto para publicação. Sempre que adicionares uma nova etapa automatizável (ex: novo script, verificação, comando), adiciona-a ao .bat e atualiza o comentário no cabeçalho com a lista de passos.
+O `OPTIMIZAR.bat` é o pipeline que o utilizador executa para ter o **build** pronto (+ ZIP de fallback). Sempre que adicionares uma nova etapa automatizável (ex: novo script, verificação, comando), adiciona-a ao .bat e atualiza o comentário no cabeçalho com a lista de passos.
+
+**Importante (desde `0.2.5`):** quando o pedido for de **publicação / upload no cPanel**, **não** parar no `OPTIMIZAR.bat` — seguir o pipeline automatizado `npm run deploy:*` descrito em `.cursor/rules/cpanel-deploy.mdc`. O `OPTIMIZAR.bat` continua a servir para gerar o build + ZIP fallback, mas a publicação em si passa pelo FTPS automatizado.
 
 ## Continuidade entre agentes/modelos
 

@@ -11,6 +11,11 @@
 declare(strict_types=1);
 
 return [
+    /**
+     * Se true, erros 500 da API podem incluir detalhe interno (nao usar em producao publica).
+     */
+    'debug' => false,
+
     /** Ex: https://xxxx.supabase.co */
     'supabase_url' => 'https://SEU-PROJETO.supabase.co',
     /** Chave anon (Settings -> API Keys). */
@@ -27,11 +32,23 @@ return [
 
     /**
      * Integração AT_Manut (taxonomia técnica).
-     * Endpoint esperado: devolve JSON com `items` (ou array direto) contendo id/code/name/path/parentId.
+     * URL absoluta obrigatória em producao (ex.: https://navel.pt/api/taxonomy-nodes.php).
+     * Nao deixe vazio: o servidor ja nao adivinha o host (evita SSRF via cabecalho Host).
      */
     'taxonomy_nodes_url' => '',
-    /** Token Bearer opcional para o endpoint da taxonomia. */
+    /** Token Bearer (ATM_TAXONOMY_TOKEN) — obrigatório se o endpoint exigir autenticação. */
     'taxonomy_auth_token' => '',
+
+    /**
+     * Fase C — integração AT_Manut (servidor → servidor apenas).
+     * Gera um segredo longo (ex.: openssl rand -hex 32). O backend PHP do AT_Manut
+     * envia `Authorization: Bearer <este valor>` para listar/pesquisar/download
+     * e vínculos só em `Assistencia Tecnica/...` — não é JWT Supabase.
+     * Nunca expor ao browser; o AT deve validar sessão local e fazer proxy.
+     */
+    'at_integration_bearer' => '',
+    /** Email registado em auditoria para pedidos com o token de integração. */
+    'at_integration_actor_email' => 'at-manut-integration@navel.pt',
 
     /**
      * Pasta absoluta no servidor onde ficam os documentos (fora do docroot se possível).
@@ -86,8 +103,26 @@ return [
 
     /**
      * Token partilhado para o cron periódico (cPanel). Gere um valor aleatório.
+     *
+     * SEGURANCA: o `onedrive-cron.php` aceita o token **apenas via header**
+     *   `X-Cron-Token: <token>`  (tokens em query strings ficam em access logs).
+     *
      * Cron sugerido (cPanel → Cron Jobs):
-     *   * /15 * * * * curl -s "https://navel.pt/onedrive-cron.php?token=COLOQUE_O_TOKEN" > /dev/null
+     *   * /15 * * * * curl -s -H "X-Cron-Token: COLOQUE_O_TOKEN" "https://navel.pt/onedrive-cron.php" > /dev/null
+     *
+     * Para compatibilidade temporaria com crons antigos (que usam `?token=`),
+     * defina `onedrive_cron_allow_query` => true. Remover apos migracao.
      */
-    'onedrive_cron_token'     => '',
+    'onedrive_cron_token'         => '',
+    'onedrive_cron_allow_query'   => false,
+
+    /**
+     * Limites de upload (defesa em profundidade; complementa php.ini).
+     *   upload_max_bytes: tamanho maximo por ficheiro em bytes (default 100 MiB).
+     *   upload_blocked_extensions: extensoes bloqueadas (inclui double-extension,
+     *     ex.: `foo.pdf.php`). Deixar null/omitir usa a blocklist por omissao
+     *     (executaveis PHP, scripts CGI, binarios Windows, .htaccess, etc.).
+     */
+    'upload_max_bytes'             => 100 * 1024 * 1024,
+    // 'upload_blocked_extensions' => ['php','phtml','phar','exe','sh','bat'],
 ];

@@ -20,11 +20,20 @@ backup-*.tar.gz
 .env
 .env.local
 .env.*.local
+.env.cpanel
+.env.cpanel.local
 Supabase e MySQL.txt
 # Chave anon só para keep-alive PHP (não commitar)
 public/keep-alive-supabase.secret.php
 public/documentos-api-config.php
 docs/CREDENCIAIS.md
+
+# Permissões reais da API de documentos (contém emails / listas de utilizadores).
+# O ficheiro `.example` fica versionado como template; o real vive só no servidor.
+public/documentos-store/.navel-permissions.json
+
+# Cache do deploy automático cPanel (scripts/cpanel-deploy.mjs)
+scripts/.cpanel-deploy-cache.json
 
 # Logs
 *.log

@@ -2,6 +2,27 @@
 
 Como publicar o site da Navel (navel.pt) no cPanel.
 
+> **Desde `0.2.5`** o caminho primário é o **deploy automático via FTPS**
+> (`npm run deploy:*`). Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md` para setup
+> único (conta FTP dedicada + `.env.cpanel`). O fluxo manual abaixo continua
+> válido como fallback ou para quem preferir arrastar um ZIP no File Manager.
+
+---
+
+## Via rápida (automatizada, recomendada)
+
+```powershell
+npm run build
+npm run deploy:dry      # ver o que vai ser enviado
+npm run deploy:all -- --yes
+```
+
+Detalhes, troubleshooting e setup em
+**[`docs/DEPLOY-AUTOMATICO-CPANEL.md`](docs/DEPLOY-AUTOMATICO-CPANEL.md)**.
+
+Os catálogos PDF continuam **excluídos** por defeito (já vivem no cPanel).
+Para os incluir ao adicionar novos: `npm run deploy:site -- --with-catalogos --yes`.
+
 ---
 
 ## Pré-requisitos
@@ -31,7 +52,17 @@ Usar sempre **OPTIMIZAR.bat** para publicar; assim o ZIP inclui todos os recurso
 
 ## 2. Upload no cPanel
 
-**File Manager:**
+**Opção A — Deploy automático (recomendado):**
+
+```powershell
+npm run deploy:all -- --yes
+```
+
+Envia `dist/` (sem catálogos) + todos os `public/*.php` via FTPS para
+`/home/navel/public_html/`. Upload incremental por hash SHA-1 — nas vezes
+seguintes só envia o que mudou. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
+
+**Opção B — File Manager manual (fallback):**
 
 1. Ir a `public_html` (ou raiz do domínio)
 2. Upload de **navel-publicar.zip**
@@ -73,14 +104,30 @@ URLs limpas (ex.: `https://navel.pt/contacto`). O ficheiro **`.htaccess`** no `d
 
 ## Atualizações
 
-Alterar código local → executar **OPTIMIZAR.bat** → enviar novo ZIP para o servidor, substituindo o anterior. Os hashes nos assets garantem que o browser carrega as novas versões.
+**Via automatizada (rápida):**
+
+```powershell
+npm run build
+npm run deploy:all -- --yes
+```
+
+Só envia ficheiros alterados (cache SHA-1 em `scripts/.cpanel-deploy-cache.json`).
+Os hashes nos assets garantem que o browser carrega as novas versões.
+
+**Via manual:** alterar código local → executar **OPTIMIZAR.bat** → enviar novo ZIP para o servidor, substituindo o anterior.
 
 **Miniaturas em `public/images/catalogos/`:** Estão no `.gitignore`; num clone limpo é preciso as gerar antes do build. O **OPTIMIZAR.bat** já corre os scripts de descarga (Beta: capas 2026 via CDN Bolas + C45/RSC50 via Proxira; Facom; XTOOLS). À mão, só Beta: `node scripts/download-beta-thumbnails.js`.
 
-**Nota sobre catálogos:** A pasta `catalogos/` (PDFs) **não** é incluída no ZIP por defeito. Já está no cPanel e não precisa de ser re-enviada a cada deploy. Só enviar quando houver novos catálogos ou alterações nessa pasta.
+**Nota sobre catálogos:** A pasta `catalogos/` (PDFs) **não** é incluída no ZIP nem no `deploy:site` por defeito. Já está no cPanel e não precisa de ser re-enviada a cada deploy. Só enviar quando houver novos catálogos ou alterações nessa pasta.
 
-Para gerar um ZIP **com** catálogos (ex: ao adicionar novos PDFs):
+Para enviar **com** catálogos (ex: ao adicionar novos PDFs):
 
+```powershell
+npm run deploy:site -- --with-catalogos --yes
 ```
+
+Ou gerar ZIP com catálogos:
+
+```powershell
 node scripts/make-zip.js --with-catalogos
 ```

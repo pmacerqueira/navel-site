@@ -73,7 +73,7 @@ try {
 } catch (Throwable $e) {
     ondrv_log($rootReal, 'oauth_exchange_failed: ' . $e->getMessage());
     http_response_code(500);
-    echo 'Nao foi possivel trocar o codigo por tokens: ' . htmlspecialchars($e->getMessage());
+    echo 'Nao foi possivel trocar o codigo por tokens. Tente novamente a partir da Area Reservada.';
     exit;
 }
 

@@ -1,8 +1,60 @@
 # Roadmap — "Sharepoint" NAVEL (Área Reservada ↔ AT_Manut)
 
-Estado do projeto em **2026-04-16**.
+Estado do projeto em **2026-04-17** (actualizado com portal: pesquisa, Fase B UI, pré-visualização).
 
 Este documento regista o roadmap em curso para a biblioteca de documentos partilhada entre a **Área Reservada** (`navel-site`, `https://navel.pt/area-reservada`) e o **AT_Manut** (`https://navel.pt/manut/`). Complementa (não substitui) [`INTEGRACAO-BIBLIOTECA-AT-MANUT.md`](./INTEGRACAO-BIBLIOTECA-AT-MANUT.md).
+
+---
+
+## Entregas recentes na Área Reservada (2026-04)
+
+Consolidação pós-Fase G, alinhada a operações reais e a boas práticas Microsoft Graph / bibliotecas modernas.
+
+| Área | O que foi feito |
+| --- | --- |
+| **Portal — pesquisa global** | `cpanelSearch` → `GET action=search`; UI **Ctrl+K / Cmd+K** + botão na barra; filtro por `documentType`; resultado com **Abrir pasta** (navega para o directório do ficheiro). Componente `PortalCommandPalette.jsx`. |
+| **Portal — Fase B (metadata upload)** | Em `Assistencia Tecnica/.../...` (≥3 segmentos no path): **tipo de documento obrigatório**; `taxonomyNodeId` resolvido por igualdade de `path` com `taxonomyNodes`; multipart envia `documentType`, `taxonomyNodeId`, `versionLabel` (título), `notes`; **chips** na listagem quando há `documentType` no `.meta` / índice. `cpanelList` passa metadata completa do servidor. |
+| **Portal — pré-visualização** | `GET action=download&inline=1` para **PDF** e **imagens** (`Content-Disposition: inline`); `cpanelDownloadBlob(..., { inline: true })`; modal `DocumentPreviewModal.jsx`. |
+| **OneDrive / Graph** | Retries em **429 / 503 / 504** com `Retry-After` e *backoff*; **gzip** em GET/POST; **delta** com `$top` na primeira página; logging `graph_throttle_retry`. Ver [`ONEDRIVE.md`](./ONEDRIVE.md). |
+| **Taxonomia AT_Manut** | Normalização **Unicode NFC**, traços tipográficos → hífen, alinhamento **`path` ↔ `slug`**; pastas em disco e UI consistentes; `n_doc_safe_rel_path` reforçado. |
+| **UI — performance** | `loadTaxonomy` / `loadOnedriveStatus` em efeitos separados (menos refetch); `folderDisplayName` com **Map** O(1); `FileThumbnail` com `memo`; regras AT taxonomia (`atSkipsTaxonomySync` vs `atHidesTaxonomyVirtualFolders`) clarificadas. |
+| **Cliente API** | `cpanelSearch`, `cpanelSetMetadata`, upload com `extraFields`; listagem com metadata; download com `inline`. |
+| **Produto** | Remoção da página `Novidades` (rota continua a redireccionar para `/catalogos`). |
+
+**Build / deploy:** **primário** `npm run build` → `npm run deploy:all -- --yes` (FTPS incremental, ver [`DEPLOY-AUTOMATICO-CPANEL.md`](./DEPLOY-AUTOMATICO-CPANEL.md)). **Fallback manual:** `npm run make-zip` → upload de `navel-publicar.zip` no File Manager. Checklist operacional: [`DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`](./DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md).
+
+---
+
+## Inspiração externa — casos e padrões reutilizáveis
+
+Referências oficiais e padrões de mercado que **não** obrigam a mudar de stack, mas informam o desenho do nosso portal (PHP + Graph + SPA).
+
+| Fonte | Ideia aplicável ao NAVEL |
+| --- | --- |
+| [Microsoft Graph — Best practices](https://learn.microsoft.com/en-us/graph/best-practices-concept) | Permissões mínimas, respeitar throttling, *delta* para alterações — já seguidos em `onedrive-lib.php`; evolução possível: **subscrições** / notificações para reduzir dependência só do cron. |
+| [Discover / delta / notify](https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/scan-guidance) | Modelo **descobrir → delta → processar mudanças** — espelha o nosso fluxo; reforça valor de métricas e orçamentos por *tick*. |
+| [OneDrive File Picker](https://learn.microsoft.com/en-us/onedrive/developer/controls/file-pickers/) | Para cenários **delegados** (escolher ficheiro já no M365) — candidato futuro no AT_Manut ou backoffice, em paralelo com o nosso disco `documentos-store`. |
+| SharePoint **biblioteca moderna** ([customização](https://learn.microsoft.com/en-us/sharepoint/dev/solution-guidance/modern-experience-customizations-customize-lists-and-libraries), [filtros](https://techcommunity.microsoft.com/t5/microsoft-sharepoint-blog/sharepoint-filters-pane-updates-filtering-and-metadata/ba-p/74162)) | **Painel de filtros** por metadados, ordenação por colunas, **painel de detalhes** com pré-visualização — mapeia para: facetas na pesquisa, colunas de tipo/taxonomia, viewer lateral. |
+| [PnP Modern Search](https://microsoft-search.github.io/pnp-modern-search/) (referência UX) | Pesquisa com facetas, cartões, verticals — inspiração para **Ctrl+K** e resultados por montagem (Comercial vs AT). |
+
+---
+
+## Plano — 10 melhorias prioritárias (qualidade “nível superior”)
+
+Ordem sugerida: impacto no utilizador + dependências técnicas. Várias prolongam directamente as fases B–D já descritas abaixo.
+
+1. ~~**Pesquisa global no portal**~~ — **Entregue:** `cpanelSearch`, paleta **Ctrl+K**, filtro por `documentType`. *(Extensão futura: `machineId`, facetas por pasta na UI.)*
+2. ~~**Fase B — metadata rica no upload**~~ — **Entregue** na árvore AT (≥3 segmentos): multipart com `documentType` + `taxonomyNodeId` + chips; **não** é obrigatório `set_metadata` POST separado porque o upload já grava metadados. *(Opcional: `set_metadata` para correcções pós-upload.)*
+3. ~~**Pré-visualização de documentos**~~ — **Entregue:** `inline=1` no download + modal com iframe/img. *(PDF.js local não necessário.)*
+4. **Versões alinhadas ao servidor** — UI de histórico a ler versões em `.navel-versions/` + metadados canónicos; descontinuar progressivamente o histórico só em `localStorage` como fonte de verdade.
+5. **Painel de auditoria (admin)** — Endpoint de leitura controlada de `.navel-audit.log` (ou agregação JSON) com filtros por data/ação/utilizador; substituir ou complementar o *slice* em `localStorage`.
+6. **Listagem fiel para UX** — `cpanelList` a devolver **MIME real** (já calculado no servidor) em vez de `application/octet-stream` genérico — base para ícones, pré-visualização e políticas.
+7. **Vista em colunas + filtros** — Tabela responsiva com ordenação por nome/data/tamanho; filtros laterais por tipo e montagem (Comercial / AT), inspirados no *filter pane* moderno.
+8. **Selecção múltipla e acções em lote** — Checkbox em ficheiros; eliminar / mover / descarregar ZIP (novo endpoint ou sequência); reduz trabalho repetitivo.
+9. **Notificações e feed** — Email em `PLANO_MANUTENCAO` (Fase D) + “Últimos documentos” na entrada da Área Reservada; opcional: webhook ou digest diário.
+10. **Acessibilidade e densidade** — Substituir ícones só-emoji por SVG + texto visível; foco e teclado em menus; modo compacto para listas longas. *“Moderno” inclui WCAG AA como alvo.*
+
+**Nota:** Subscrições Microsoft Graph (*change notifications*) para drives são um **passo 11 opcional** (quase tempo-real) — exige endpoint HTTPS público estável e renovação de subscrições; útil quando o cron de 15 min deixar de ser suficiente.
 
 ---
 
@@ -24,26 +76,34 @@ Entregue e validado em produção a 2026-04-16.
 
 ---
 
-## Fase B — Metadata automática no upload (PRÓXIMA)
+## Fase B — Metadata automática no upload (CONCLUÍDA na UI)
 
-**Objectivo:** quando o utilizador está dentro de `Assistencia Tecnica/<Categoria>/<Subcategoria>`, o upload pré-preenche automaticamente a metadata do documento e exige o `documentType`.
+**Objectivo:** quando o utilizador está dentro de `Assistencia Tecnica/<Categoria>/<Subcategoria>`, o upload envia metadata com `documentType` obrigatório e `taxonomyNodeId` quando o path coincide com um nó.
 
 ### Entregas
 
-- [ ] `AreaReservada.jsx` — detectar path atual; se estiver dentro da árvore de taxonomia, resolver o `taxonomyNodeId` correspondente a partir de `taxonomyNodes`.
-- [ ] Formulário de upload ganha dois campos visíveis quando há `taxonomyNodeId` resolvido:
-  - `documentType` (select obrigatório com os 4 valores do enum).
-  - `displayName` (opcional; default = nome do ficheiro sem extensão).
-- [ ] Chamar `set_metadata` imediatamente a seguir ao `upload` bem sucedido, passando `taxonomyNodeId`, `documentType`, `displayName` e `version` (default `1`).
-- [ ] Mostrar badge visual na listagem de ficheiros com o `documentType` (chip colorido) e link ao node de taxonomia.
-- [ ] Breadcrumbs com labels reais da taxonomia (já parcialmente feito na Fase A — confirmar em todos os níveis).
-- [ ] i18n dos novos strings (PT/EN/ES).
+- [x] `AreaReservada.jsx` — zona de upload AT quando o path tem **≥3** segmentos (`Assistencia Tecnica` + categoria + subcategoria ou mais); `taxonomyNodeId` por **igualdade** `node.path` ↔ `currentPath`.
+- [x] Select **documentType** (enum de 4 valores) obrigatório nessa zona; título do formulário → `versionLabel` no multipart; notas/tags → `notes` (concatenado).
+- [x] Metadados gravados no **mesmo** upload multipart (POST `action=upload`) — **não** é necessário `set_metadata` em sequência para o fluxo normal.
+- [x] Chips na listagem com `documentType` quando presente nos metadados do ficheiro.
+- [x] Breadcrumbs com labels reais da taxonomia (continuação da Fase A).
+- [x] i18n PT/EN/ES (`auth.portal*`, `auth.documentType.*`).
 
 ### Critérios de aceitação
 
-- Um upload feito dentro de `Assistencia Tecnica/Compressores/Compressor de parafuso/` fica com `taxonomyNodeId` e `parentPath` correctos no `.navel-index.json` sem intervenção do utilizador.
-- Se o utilizador tentar submeter sem `documentType`, o botão "Carregar" fica desativado.
-- A lista de ficheiros mostra uma chip por ficheiro com o `documentType`.
+- Upload em pasta profunda de AT exige `documentType`; botão **Carregar** desactivado até preencher.
+- Listagem mostra chip por ficheiro quando `documentType` está no metadata (após indexação / listagem PHP).
+
+### Próximo refinamento (opcional)
+
+- [ ] `set_metadata` dedicado para corrigir metadata após upload sem re-enviar ficheiro.
+- [ ] Breadcrumb com link directo ao node AT_Manut (quando URL estável).
+
+---
+
+## Próxima fase operativa sugerida — **C** (AT_Manut)
+
+Documentação e código do portal estão prontos para avançar para a **Fase C** (ligação documentos ↔ máquinas no AT_Manut), conforme secção seguinte.
 
 ---
 
@@ -53,13 +113,14 @@ Entregue e validado em produção a 2026-04-16.
 
 ### Entregas
 
-- [ ] Novo endpoint no AT_Manut: `api/data.php` ganha recurso `documentosBiblioteca` (read-only) que consulta `documentos-api.php/search` com o token técnico adequado.
+- [ ] Novo endpoint no AT_Manut: `api/data.php` ganha recurso `documentosBiblioteca` (read-only) que consulta `documentos-api.php/search` com o token técnico adequado — **ver `docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md` §10 e exemplo de proxy**.
 - [ ] Componente React no AT_Manut (`src/pages/MaquinaDetalhe.jsx` ou equivalente) com novo separador "Biblioteca" que:
-  - Lista documentos já linkados à máquina (GET `machine_links?machineId=...`).
+  - Lista documentos já linkados à máquina (`GET action=search&machineId=...`).
   - Botão "Linkar documento existente" → modal com search na biblioteca (por nome, tipo, taxonomia).
-  - Botão "Upload novo documento" → abre formulário que faz upload directamente na subpasta correcta de `Assistencia Tecnica/<Categoria da máquina>/<Subcategoria da máquina>/` com `machineLinks: [machineId]` pré-preenchido.
-- [ ] `documentos-api.php` já expõe `machine_links_get` e `machine_links_set` (Fase A) — confirmar que aceita chamadas cross-origin do AT_Manut (revisão CORS).
-- [ ] Ao desassociar uma máquina, actualizar `.navel-index.json` (apagar entrada em `machineLinks[]` do documento).
+  - Botão "Upload novo documento" → multipart para a subpasta `Assistencia Tecnica/<Categoria>/<Subcategoria>/` com campo opcional `linkMachineIds` (JSON array no mesmo pedido) ou `POST machine_links` a seguir.
+- [x] **`documentos-api.php` (navel-site):** token serviço **`at_integration_bearer`** (âmbito só `Assistencia Tecnica/`), permissões fechadas para integração (sem OneDrive/delete/taxonomia/reindex). **CORS no browser não é obrigatório** se o AT usar proxy PHP no mesmo `navel.pt` — o token não sai do servidor.
+- [x] **`documentos-api.php`:** campo multipart opcional **`linkMachineIds`** (JSON) para gravar vínculos no mesmo upload; `cpanelMachineLinksGet` / `cpanelMachineLinksSet` em `documentosCpanelApi.js`.
+- [x] Desassociar máquina: `POST action=machine_links` com lista `machineIds` actualizada (o índice `.navel-index.json` já segue ao gravar vínculos).
 
 ### Critérios de aceitação
 
@@ -204,7 +265,7 @@ Entregue e validada em **2026-04-16**. Documentação: [`ONEDRIVE.md`](./ONEDRIV
 ## Fora de âmbito imediato (notas para futuro)
 
 - Versionamento explícito com UI (actualmente arquivamos versões antigas em `.navel-versions/` mas não há seletor).
-- Pré-visualização inline (PDF viewer) em vez de download.
+- Pré-visualização alargada (Office, vídeo) — hoje: PDF + imagens via `inline` + modal.
 - Assinatura digital de documentos.
 - Exportar/importar o `.navel-index.json` como backup.
 - Eventual migração para S3/Supabase Storage caso o espaço no cPanel fique curto (o índice canónico já permite).
@@ -224,14 +285,16 @@ Entregue e validada em **2026-04-16**. Documentação: [`ONEDRIVE.md`](./ONEDRIV
 ## Ficheiros-chave
 
 ### navel-site
-- `public/documentos-api.php` — API.
+- `public/documentos-api.php` — API (incl. `search`, `download` com `inline=1`).
 - `public/documentos-api-config.sample.php` — template de config.
 - `public/onedrive-lib.php` — cliente Graph + sync.
 - `public/onedrive-callback.php` — OAuth redirect handler.
 - `public/onedrive-cron.php` — job periódico.
-- `src/pages/AreaReservada.jsx` — UI.
-- `src/lib/documentosCpanelApi.js` — wrapper JS.
-- `src/lib/documentosSchema.js` — constantes partilhadas.
+- `src/pages/AreaReservada.jsx` — UI portal.
+- `src/components/PortalCommandPalette.jsx` — pesquisa global Ctrl+K.
+- `src/components/DocumentPreviewModal.jsx` — pré-visualização PDF/imagem.
+- `src/lib/documentosCpanelApi.js` — wrapper JS (`cpanelSearch`, upload, list com metadata, download inline).
+- `src/lib/documentosSchema.js` — constantes partilhadas (`DOCUMENT_TYPES`, etc.).
 - `docs/CPANEL-DOCUMENTOS.md` — setup produção.
 - `docs/ONEDRIVE.md` — setup e operação das Fases E (Comercial / pull) e F (AT / push, multi-mount).
 - `docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md` — contrato técnico.

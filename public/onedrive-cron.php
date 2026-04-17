@@ -37,8 +37,15 @@ if ($ondCfg === null) {
     exit;
 }
 
+// Aceita token apenas via header `X-Cron-Token` (evita tokens em query strings
+// que ficam registados em access logs de proxies/CDNs).
+// Compatibilidade: se `cfg.onedrive_cron_allow_query` estiver explicitamente
+// a true, ainda aceita `?token=` (apenas para migração temporária).
 $expected = (string)($cfg['onedrive_cron_token'] ?? '');
-$provided = (string)($_GET['token'] ?? $_SERVER['HTTP_X_CRON_TOKEN'] ?? '');
+$provided = (string)($_SERVER['HTTP_X_CRON_TOKEN'] ?? '');
+if ($provided === '' && !empty($cfg['onedrive_cron_allow_query'])) {
+    $provided = (string)($_GET['token'] ?? '');
+}
 if ($expected === '' || $provided === '' || !hash_equals($expected, $provided)) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'unauthorized']);
@@ -84,7 +91,7 @@ try {
             $r = ondrv_sync_mount_run_until_done($rootReal, $ondCfg, $m, 840);
         } catch (Throwable $e) {
             ondrv_log($rootReal, 'cron_mount_exception[' . $m['id'] . ']: ' . $e->getMessage());
-            $r = ['ok' => false, 'error' => 'exception', 'detail' => $e->getMessage()];
+            $r = ['ok' => false, 'error' => 'exception'];
         }
         if (empty($r['ok'])) $okAll = false;
         $results[$m['id']] = $r;
@@ -93,7 +100,7 @@ try {
 } catch (Throwable $e) {
     ondrv_log($rootReal, 'cron_exception: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'exception', 'detail' => $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => 'exception']);
 } finally {
     @flock($fp, LOCK_UN);
     @fclose($fp);

@@ -8,19 +8,42 @@ Site institucional da **José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.** — m
 
 ## Comandos
 
+### Desenvolvimento / build
+
 | Comando | Uso |
 |--------|-----|
 | `npm install` | Instalar dependências |
 | `npm run dev` | Servidor local (http://localhost:3000) |
 | `npm run build` | Build de produção → `dist/` |
 | `npm run preview` | Pré-visualizar o build |
-| **`OPTIMIZAR.bat`** | Pipeline completo: thumbnails, otimizar imagens, build, ZIP para cPanel |
+| **`OPTIMIZAR.bat`** | Pipeline completo: thumbnails, otimizar imagens, build, ZIP para cPanel (fallback legado) |
+
+### Deploy automático para cPanel (FTPS) — desde `0.2.5`
+
+| Comando | Uso |
+|--------|-----|
+| `npm run deploy:probe` | Testa conectividade FTPS/SFTP/UAPI com as credenciais em `.env.cpanel` |
+| `npm run deploy:dry` | Mostra o que seria enviado (nada é escrito) |
+| `npm run deploy:php -- --yes` | Envia `public/*.php` para o cPanel |
+| `npm run deploy:site -- --yes` | Envia `dist/` (sem catálogos) para o cPanel |
+| `npm run deploy:all -- --yes` | Envia site + PHP (sem catálogos, sem ZIPs) |
+| `npm run deploy:file -- --file=public/X.php --yes` | Envia um ficheiro específico |
+
+Setup único em `docs/DEPLOY-AUTOMATICO-CPANEL.md` (conta FTP dedicada, `.env.cpanel` local, gitignored). Upload incremental: só ficheiros alterados (SHA-1).
 
 Rotas com URL limpa: `/sobre`, `/produtos`, `/marcas`, `/contacto`, etc. (BrowserRouter + `.htaccess` no servidor).
 
 ---
 
 ## Publicação (cPanel)
+
+**Caminho primário (automatizado):**
+
+1. Uma vez: seguir setup em `docs/DEPLOY-AUTOMATICO-CPANEL.md` (criar conta FTP dedicada + `.env.cpanel`)
+2. Editar o código / fazer `npm run build`
+3. `npm run deploy:dry` (ver o plano) → `npm run deploy:all -- --yes` (enviar)
+
+**Caminho manual (fallback, ainda suportado):**
 
 1. Executar **`OPTIMIZAR.bat`** (ou `npm run build` → `npm run make-zip`) → gera `navel-publicar.zip` a partir de **`dist/`**
 2. No cPanel: File Manager → Upload do ZIP → Extract → Apagar o ZIP
@@ -58,6 +81,7 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 - `docs/ARQUITETURA.md` — decisões técnicas e limites de projeto.
 - `CHANGELOG.md` — histórico de mudanças e decisões.
 - `DEPLOY.md` — processo de publicação.
+- `docs/DEPLOY-AUTOMATICO-CPANEL.md` — upload automático FTPS/SFTP/UAPI.
 
 ### Operação
 - `docs/CATALOGOS-BOLAS-BETA-TELWIN.md` — actualizar cartões Beta (Bolas) e Telwin

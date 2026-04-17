@@ -13,6 +13,15 @@ Ambos partilham a **mesma app registration Entra ID** (reutilizada do `navel-pro
 
 A direcção de cada mount é configurável em `documentos-api-config.php` via `onedrive_comercial_direction` / `onedrive_at_direction`. Valores válidos: `'pull'`, `'push'`, `'bidirectional'` (default).
 
+## Fonte de verdade e responsabilidades (declaração NAVEL)
+
+| Domínio | Fonte de verdade | Trabalho no dia-a-dia |
+| --- | --- | --- |
+| **Pastas e ficheiros** na árvore `Documentos/NAVEL/...` (catálogos, documentação técnica, PDFs) | **OneDrive (Microsoft 365)**. O servidor cPanel espelha a nuvem via Microsoft Graph (não lê directamente o disco `C:\...` do PC). | Podes **criar, editar, mover e apagar** pastas e ficheiros **só no OneDrive** (aplicação de secretária ou browser). O cliente OneDrive no PC sincroniza com a nuvem. **Não** é obrigatório usar o navel-site para essa gestão, desde que o sync no servidor (`Sincronizar agora` / cron) mantenha o espelho. |
+| **Registos de negócio AT** (equipamentos, clientes, manutenções, checklists legais) | **AT_Manut** (base de dados MySQL). | Continua a ser o sistema de registo; **não** é substituído pelo OneDrive. A **taxonomia** (categorias/subcategorias) no AT alinha **nomes** com as pastas; os ficheiros em si vivem no OneDrive / cópia no servidor. |
+
+**Resumo:** para documentação em pastas NAVEL, o OneDrive pode ser o posto de trabalho principal; o site institucional (área reservada) é interface e espelho sincronizado. Para dados operacionais de assistência técnica (equipamentos, etc.), usar AT_Manut.
+
 ---
 
 ## 1. Comportamento por mount
@@ -244,7 +253,7 @@ Logs em `documentos-store/`:
 
 ## 10. Operações futuras
 
-- **Bidireccional total**: mudar `direction` de um mount para `bidirectional` na lib. Já fica operacional — delta pull + push full na mesma corrida. Falta definir política de conflitos (preferência: last-modified mais recente vence).
+- **Bidireccional total**: **concluído na Fase G** (ver `docs/ROADMAP-SHAREPOINT.md`). Qualquer mount pode operar como `bidirectional` (delta pull + push full na mesma corrida, política LWW — last-write-wins por timestamp `lastModifiedDateTime`).
 - **Rotação de secret Entra**: actualizar `microsoft_client_secret` aqui **e** no `.env` do navel-propostas.
 - **Novo utilizador admin OneDrive**: clicar em **Reautenticar OneDrive** no painel; refresh token é substituído; `deltaLink` é descartado no próximo reset.
 - **Novo mount (p.ex. "RH" ou "Qualidade")**: acrescentar em `ondrv_get_mounts()` com `direction` apropriada, adicionar um slug de pasta local em `DOCUMENTOS_ROOT_FOLDERS` e uma chave de config nova.

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../constants'
-import { changeLanguage } from '../i18n'
+import { changeLanguage, normalizeLanguage } from '../i18n'
 
 export default function LanguageSwitcher() {
   const { t, i18n } = useTranslation()
@@ -9,7 +9,8 @@ export default function LanguageSwitcher() {
   const [loading, setLoading] = useState(null)
   const ref = useRef(null)
 
-  const current = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0]
+  const currentLang = normalizeLanguage(i18n.language)
+  const current = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0]
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -22,7 +23,7 @@ export default function LanguageSwitcher() {
   }, [open])
 
   async function handleSelect(code) {
-    if (code === i18n.language) {
+    if (code === currentLang) {
       setOpen(false)
       return
     }
@@ -51,10 +52,10 @@ export default function LanguageSwitcher() {
       {open && (
         <ul className="lang-switcher__dropdown" role="listbox" aria-label={t('language.label')}>
           {LANGUAGES.map(({ code, labelKey, flag }) => (
-            <li key={code} role="option" aria-selected={i18n.language === code}>
+            <li key={code} role="option" aria-selected={currentLang === code}>
               <button
                 type="button"
-                className={'lang-switcher__option' + (i18n.language === code ? ' lang-switcher__option--active' : '')}
+                className={'lang-switcher__option' + (currentLang === code ? ' lang-switcher__option--active' : '')}
                 onClick={() => handleSelect(code)}
                 disabled={loading === code}
                 lang={code}

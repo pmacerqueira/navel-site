@@ -7,7 +7,8 @@ Todas as imagens do site estão organizadas em subpastas:
 | **logo.png** | Logo do site (header, footer) |
 | **og-image.png** | Imagem para partilha social (Open Graph, Twitter Card). Dimensões: 1200×630 px. |
 | **brands/** | Logos das marcas (página Marcas, rodapé, hero). Inclui PNG/SVG (Facom, Cleancraft, Aircraft, Schweisscraft, Holzkraft, Unicraft, Optimum, etc.). Otimizados por `npm run optimize-images` (max 400px largura). |
-| **campaigns/** | Thumbnails das campanhas (Home, Novidades) |
+| **campaigns/** | Thumbnails das campanhas (Home) |
+| **catalogos/** | Capas e folhetos das páginas de catálogos (Beta, Facom, XTOOLS, Telwin). Geradas pelos scripts `scripts/download-*-thumbnails.js`. |
 
 ## Adicionar nova marca
 

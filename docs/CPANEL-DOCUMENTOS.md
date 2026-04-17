@@ -8,11 +8,41 @@ O **login e a aprovação de utilizadores** continuam no **Supabase** (Auth + ta
 
 ## Checklist rápida
 
-1. No PC: `.env` → `VITE_DOCUMENTOS_API=/documentos-api.php` (ou caminho correcto) → **`npm run build`** → **`npm run make-zip`** (o pacote usa **`dist/`**; sem build, o ZIP pode não incluir PHP/JS actualizados). Ver **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`**.
-2. No cPanel: antes de extrair o ZIP, **apagar `public_html/assets/`** para evitar JS/CSS antigos com hash diferente.
-3. No Supabase: confirmar URL do projeto e chave anon (Settings → API / API Keys).
-4. No cPanel: criar `documentos-api-config.php` a partir do sample, colar o JWT Secret, permissões na pasta de ficheiros, ajustar limites PHP se precisar.
-5. Testar: utilizador normal (carregar/descarregar); admin `comercial@navel.pt` (criar pasta, apagar, substituir ficheiros).
+1. No PC: `.env` → `VITE_DOCUMENTOS_API=/documentos-api.php` (ou caminho correcto) → **`npm run build`** → enviar:
+   - **Automatizado (preferido):** `npm run deploy:all -- --yes` (envia site + PHP via FTPS incremental). Ver **`docs/DEPLOY-AUTOMATICO-CPANEL.md`**.
+   - **Manual:** `npm run make-zip` + upload do ZIP no File Manager. Ver **`docs/DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`**.
+2. Para **só actualizar o PHP da API** sem rebuild do site: `npm run deploy:php -- --yes`.
+3. No cPanel (fluxo manual apenas): antes de extrair o ZIP, **apagar `public_html/assets/`** para evitar JS/CSS antigos com hash diferente. O fluxo automatizado substitui pelo nome, por isso não precisa.
+4. No Supabase: confirmar URL do projeto e chave anon (Settings → API / API Keys).
+5. No cPanel: criar `documentos-api-config.php` a partir do sample, colar o JWT Secret, permissões na pasta de ficheiros, ajustar limites PHP se precisar.
+6. No cPanel: criar **`.navel-permissions.json`** dentro de `documentos-store/` (a partir de `.navel-permissions.json.example`). **Sem este ficheiro, a API aplica política _fail-closed_ — só o admin acede.**
+7. Testar: utilizador normal (carregar/descarregar); admin `comercial@navel.pt` (criar pasta, apagar, substituir ficheiros).
+8. Com build recente: **pesquisa global** (Ctrl+K na área reservada), **metadata no upload** em pastas AT profundas, **pré-visualização** PDF/imagem — requerem `documentos-api.php` actualizado no servidor (incl. `GET download&inline=1` e índice de `search`).
+
+---
+
+## Funcionalidades do portal (SPA + API)
+
+Quando `VITE_DOCUMENTOS_API` está activo, o cliente em `src/lib/documentosCpanelApi.js` expõe:
+
+| Método / uso | Endpoint PHP | Notas |
+|--------------|--------------|--------|
+| `cpanelSearch` | `GET ?action=search` + `q`, filtros opcionais (`documentType`, `taxonomyNodeId`, …) | Resultados a partir do `.navel-index.json`; permissões por pasta. |
+| `cpanelList` | `GET ?action=list&path=` | Devolve `metadata` por ficheiro (incl. `documentType`). |
+| `cpanelUploadWithProgress` + `extraFields` | `POST` multipart `action=upload` | Campos extra: `documentType`, `taxonomyNodeId`, `versionLabel`, `notes`, … |
+| `cpanelDownloadBlob` | `GET ?action=download&path=` | Com `inline=1` só para **PDF** e **image/** — cabeçalho `Content-Disposition: inline` (pré-visualização no browser). |
+| `cpanelSetMetadata` | `POST` JSON `action=set_metadata` | Opcional; correcção de metadata sem novo upload. |
+
+Componentes UI: `PortalCommandPalette.jsx` (Ctrl+K), `DocumentPreviewModal.jsx` (PDF/imagem). Detalhe de roadmap: [`docs/ROADMAP-SHAREPOINT.md`](./ROADMAP-SHAREPOINT.md).
+
+---
+
+## Segurança — `.navel-permissions.json`
+
+- **Sem ficheiro** na pasta de documentos: a API usa regras por omissão (equivalente a listar/descarregar/carregar para utilizadores autenticados nas pastas-mãe), alinhado a instalações antigas.
+- **Ficheiro inválido, vazio ou `{}`**: acesso **negado** a utilizadores não-admin até corrigir o JSON (fail-closed).
+- Copie [`.navel-permissions.json.example`](../public/documentos-store/.navel-permissions.json.example) para `.navel-permissions.json` e ajuste listas de emails por pasta (`*` = qualquer utilizador aprovado).
+- Em `documentos-api-config.php`, defina **`taxonomy_nodes_url`** com URL absoluta (o servidor **não** deduz o host a partir do pedido HTTP). Use **`debug` => true** só em diagnóstico — em produção os erros 500 não expõem mensagens internas.
 
 ---
 
@@ -45,7 +75,10 @@ Mantenha também **`VITE_SUPABASE_URL`** e **`VITE_SUPABASE_ANON_KEY`** — são
 npm run build
 ```
 
-Gere o **`navel-publicar.zip`** (ou o fluxo que já usa) e envie para o **cPanel** como habitualmente.
+Publicar de uma de duas formas:
+
+- **Automatizado (preferido):** `npm run deploy:all -- --yes` (envia site + PHP via FTPS; cache incremental).
+- **Manual:** gerar `navel-publicar.zip` com `npm run make-zip` e enviar no File Manager.
 
 **Importante:** `VITE_DOCUMENTOS_API` é lida **no momento do build**. Se mudar o `.env`, tem de **voltar a fazer o build** e **voltar a subir** os ficheiros gerados.
 
@@ -193,6 +226,13 @@ Para a Área Reservada mostrar, dentro de `Assistência Técnica`, a mesma árvo
 - Valor por omissão hard-coded nos dois lados: `a8f3c19d-4b25-47e6-9f8a-3c2e1d0b7a95`.
 - Para mudar: alterar `ATM_TAXONOMY_TOKEN` em `AT_Manut/servidor-cpanel/api/config.php` **e** `taxonomy_auth_token` em `navel-site/public/documentos-api-config.php` (ou editar a linha do fallback em `documentos-api.php`). Alternativa: variável de ambiente `ATM_TAXONOMY_TOKEN` no cPanel (Advanced → Environment Variables).
 
+### Fase C — token de integração AT_Manut (`at_integration_bearer`)
+
+- Gere um segredo forte e coloca em `documentos-api-config.php`: `at_integration_bearer` e opcionalmente `at_integration_actor_email` (auditoria).
+- O backend do AT_Manut envia `Authorization: Bearer <at_integration_bearer>` apenas em **pedidos servidor → servidor** (nunca no JavaScript público).
+- Enquanto este Bearer estiver activo, a API limita esse contexto ao ramo **`Assistencia Tecnica/...`** (inclui `search`, `download`, `machine_links`, upload com `linkMachineIds` opcional). Operações OneDrive, eliminação, `reindex`, taxonomia, etc. respondem `403 forbidden_for_at_integration`.
+- Detalhe: [`docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md`](./INTEGRACAO-BIBLIOTECA-AT-MANUT.md) §10.
+
 ### Auto-discovery
 
 O `documentos-api.php` tenta, por esta ordem, se `taxonomy_nodes_url` não estiver definido:
@@ -215,6 +255,4 @@ O `documentos-api.php` tenta, por esta ordem, se `taxonomy_nodes_url` não estiv
 - `public/documentos-api-config.sample.php` — modelo de configuração.
 - `public/documentos-store/.htaccess` — bloqueio de acesso directo.
 - `.env.example` — exemplo da variável `VITE_DOCUMENTOS_API`.
-- `.gitignore` — `public/documentos-api-config.php` não deve ser commitado (contém segredo).
-
-Bom descanso; quando voltar, abra este ficheiro em **`docs/CPANEL-DOCUMENTOS.md`**.
+- `.gitignore` — `public/documentos-api-config.php` e `public/documentos-store/.navel-permissions.json` não devem ser commitados (contêm segredo / emails).

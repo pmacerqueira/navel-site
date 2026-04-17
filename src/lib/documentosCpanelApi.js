@@ -22,7 +22,8 @@ function buildUrl(params) {
   if (!base) throw new Error('no_documentos_api')
   const u = new URL(base)
   for (const [k, v] of Object.entries(params)) {
-    u.searchParams.set(k, v)
+    if (v === '' || v == null) continue
+    u.searchParams.set(k, String(v))
   }
   return u.toString()
 }
@@ -70,25 +71,38 @@ export async function cpanelList(accessToken, path) {
   const items = Array.isArray(data.items) ? data.items : []
   return items.map((row) => {
     if (row.isFile) {
+      const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {}
       return {
         name: row.name,
         metadata: {
           size: typeof row.size === 'number' ? row.size : 0,
           mimetype: 'application/octet-stream',
+          ...meta,
         },
+        updated_at: row.updatedAt || null,
+        currentVersion: row.currentVersion,
       }
     }
     return { name: row.name, metadata: {} }
   })
 }
 
-export function cpanelUploadWithProgress(accessToken, currentPath, file, onProgress) {
+/**
+ * @param {Record<string, string | number | undefined | null>} [extraFields] — metadata enviada no multipart (documentType, taxonomyNodeId, notes, …)
+ */
+export function cpanelUploadWithProgress(accessToken, currentPath, file, onProgress, extraFields) {
   const base = apiBaseUrl()
   if (!base) return Promise.reject(new Error('no_documentos_api'))
   const fd = new FormData()
   fd.append('action', 'upload')
   fd.append('path', currentPath || '')
   fd.append('file', file)
+  if (extraFields && typeof extraFields === 'object') {
+    for (const [k, v] of Object.entries(extraFields)) {
+      if (v == null || v === '') continue
+      fd.append(k, String(v))
+    }
+  }
   const u = new URL(base)
 
   return new Promise((resolve, reject) => {
@@ -118,8 +132,13 @@ export function cpanelUploadWithProgress(accessToken, currentPath, file, onProgr
   })
 }
 
-export async function cpanelDownloadBlob(accessToken, relPath) {
-  const url = buildUrl({ action: 'download', path: relPath })
+/**
+ * @param {{ inline?: boolean }} [options] — `inline: true` pede ao servidor `Content-Disposition: inline` (PDF e imagens)
+ */
+export async function cpanelDownloadBlob(accessToken, relPath, options = {}) {
+  const params = { action: 'download', path: relPath }
+  if (options.inline) params.inline = '1'
+  const url = buildUrl(params)
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
@@ -128,6 +147,109 @@ export async function cpanelDownloadBlob(accessToken, relPath) {
     throw new Error(err.error || err.message || res.statusText || 'download_failed')
   }
   return res.blob()
+}
+
+/**
+ * Pesquisa global no índice (GET action=search).
+ * @param {Record<string, string>} [filters] — q, documentType, taxonomyNodeId, machineId, …
+ */
+/**
+ * Lê vínculos de máquinas para um ficheiro (GET action=machine_links).
+ * @param {string} relPath — caminho relativo do ficheiro na biblioteca
+ */
+export async function cpanelMachineLinksGet(accessToken, relPath) {
+  const url = buildUrl({ action: 'machine_links', path: relPath || '' })
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'machine_links_get_failed')
+  }
+  return data
+}
+
+/**
+ * Define vínculos máquinas ↔ documento (POST JSON action=machine_links).
+ * @param {{ machineIds: string[], source?: string, confidence?: number|null }} payload
+ */
+export async function cpanelMachineLinksSet(accessToken, relPath, payload) {
+  const base = apiBaseUrl()
+  if (!base) throw new Error('no_documentos_api')
+  const body = {
+    action: 'machine_links',
+    path: relPath || '',
+    machineIds: Array.isArray(payload?.machineIds) ? payload.machineIds : [],
+    source: payload?.source || 'MANUAL',
+  }
+  if (payload?.confidence != null && payload.confidence !== '') {
+    body.confidence = payload.confidence
+  }
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'machine_links_set_failed')
+  }
+  return data
+}
+
+export async function cpanelSearch(accessToken, filters = {}) {
+  const params = { action: 'search' }
+  const keys = [
+    'q',
+    'documentType',
+    'taxonomyNodeId',
+    'department',
+    'brand',
+    'category',
+    'equipment',
+    'versionLabel',
+    'validUntil',
+    'notes',
+    'machineId',
+  ]
+  for (const k of keys) {
+    const v = filters[k]
+    if (v != null && String(v).trim() !== '') params[k] = String(v).trim()
+  }
+  const url = buildUrl(params)
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'search_failed')
+  }
+  return data
+}
+
+export async function cpanelSetMetadata(accessToken, relPath, metadata) {
+  const base = apiBaseUrl()
+  if (!base) throw new Error('no_documentos_api')
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'set_metadata',
+      path: relPath,
+      metadata: metadata && typeof metadata === 'object' ? metadata : {},
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'set_metadata_failed')
+  }
+  return data
 }
 
 export async function cpanelEnsureMarker(accessToken, markerRelPath) {

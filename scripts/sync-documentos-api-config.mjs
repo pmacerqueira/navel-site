@@ -1,7 +1,8 @@
 /**
- * Lê VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY do .env e actualiza
- * public/documentos-api-config.php (só as chaves supabase_*), preservando o resto
- * (at_integration_bearer, OneDrive, etc.).
+ * Lê o .env e actualiza public/documentos-api-config.php:
+ *   - supabase_url, supabase_anon_key (obrigatório se .env tiver valores reais)
+ *   - onedrive_cron_token (opcional) — se ONEDRIVE_CRON_TOKEN estiver no .env,
+ *     evita que deploys sobrescrevam o token no servidor com string vazia.
  *
  * Assim o ficheiro fica alinhado com o projecto antes de `vite build` copiar para dist/.
  * Executado em prebuild; se .env não existir ou faltar valores, avisa e não falha.
@@ -103,6 +104,19 @@ if (n === null) {
   process.exit(1)
 }
 next = n
+
+const cronTok = (env.ONEDRIVE_CRON_TOKEN || '').trim()
+if (cronTok) {
+  const r = replaceKey(next, 'onedrive_cron_token', cronTok)
+  if (r !== null) {
+    next = r
+    console.log('[sync-documentos-api-config] Actualizado onedrive_cron_token a partir de ONEDRIVE_CRON_TOKEN')
+  } else {
+    console.warn(
+      '[sync-documentos-api-config] ONEDRIVE_CRON_TOKEN definido mas não encontrei onedrive_cron_token no PHP',
+    )
+  }
+}
 
 writeFileSync(target, next, 'utf8')
 console.log('[sync-documentos-api-config] Actualizado supabase_url e supabase_anon_key em public/documentos-api-config.php')

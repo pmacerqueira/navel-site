@@ -22,7 +22,8 @@
     "deploy:zips": "node scripts/cpanel-deploy.mjs --zips",
     "deploy:file": "node scripts/cpanel-deploy.mjs",
     "deploy:all": "node scripts/cpanel-deploy.mjs --all",
-    "cpanel:hygiene": "node scripts/cpanel-server-hygiene.mjs"
+    "cpanel:hygiene": "node scripts/cpanel-server-hygiene.mjs",
+    "test:onedrive-cron": "node scripts/test-onedrive-cron-now.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",

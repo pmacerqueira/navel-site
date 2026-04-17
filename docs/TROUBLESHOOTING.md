@@ -110,7 +110,8 @@ Links internos ou refresh (F5) em `/contacto`, `/produtos`, etc. devolvem 404 em
 | **Todos os utilizadores veem "sem pastas" / 403** | **Falta `.navel-permissions.json`** no cPanel (desde v0.2.6 a API é **fail-closed**) | Criar `documentos-store/.navel-permissions.json` a partir de `.navel-permissions.json.example` com os emails reais (ver `docs/CPANEL-DOCUMENTOS.md`). |
 | Upload rejeitado com `blocked_extension` | Ficheiro tem extensão executável (`.php`, `.exe`, `.bat`, …) ou double-extension (`relatorio.pdf.php`) | Renomear. Se for legítimo, configurar `upload_blocked_extensions` em `documentos-api-config.php`. |
 | Upload rejeitado com `file_too_large` | Ultrapassa `upload_max_bytes` (default 100 MiB) | Ajustar `cfg.upload_max_bytes` **e** `upload_max_filesize` / `post_max_size` no `php.ini` do cPanel. |
-| `onedrive-cron.php` devolve `401 unauthorized` após upgrade | Cron ainda usa `?token=` em vez de header | Mudar para `curl -H "X-Cron-Token: …"` ou, temporariamente, `cfg.onedrive_cron_allow_query = true`. |
+| `onedrive-cron.php` / log com **403** e `message: Acesso negado` | **Isto não vem** do nosso `onedrive-cron.php` — costuma ser **ModSecurity** (firewall do alojamento) a bloquear o header `X-Cron-Token`. | Usar **`curl -X POST -d "token=SEU_TOKEN" "https://navel.pt/onedrive-cron.php"`** (corrigido no repo; fazer deploy do PHP). Ou reactivar `?token=` com `onedrive_cron_allow_query => true` em `documentos-api-config.php`. |
+| `onedrive-cron.php` devolve `401 unauthorized` | Token errado ou vazio | Conferir `onedrive_cron_token` no `documentos-api-config.php` do servidor; alinhar com o cron. |
 | F5 desloga ao refresh | Lógica extra de `signOut` em reload | Não forçar logout em `navigation.type === 'reload'`. |
 
 ---

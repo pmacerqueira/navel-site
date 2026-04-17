@@ -37,12 +37,18 @@ if ($ondCfg === null) {
     exit;
 }
 
-// Aceita token apenas via header `X-Cron-Token` (evita tokens em query strings
-// que ficam registados em access logs de proxies/CDNs).
-// Compatibilidade: se `cfg.onedrive_cron_allow_query` estiver explicitamente
-// a true, ainda aceita `?token=` (apenas para migração temporária).
+// Token (por ordem). Muitos alojamentos bloqueiam headers HTTP não standard
+// no cron (403 "Acesso negado" do ModSecurity) — nesse caso usar POST ou query.
+//
+// 1) Header X-Cron-Token (preferido quando o servidor deixa passar)
+// 2) POST application/x-www-form-urlencoded campo "token" (recomendado no cron
+//    se o header for bloqueado: curl -X POST -d "token=..." URL)
+// 3) GET ?token= só se onedrive_cron_allow_query => true em documentos-api-config.php
 $expected = (string)($cfg['onedrive_cron_token'] ?? '');
 $provided = (string)($_SERVER['HTTP_X_CRON_TOKEN'] ?? '');
+if ($provided === '' && strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST') {
+    $provided = (string)($_POST['token'] ?? '');
+}
 if ($provided === '' && !empty($cfg['onedrive_cron_allow_query'])) {
     $provided = (string)($_GET['token'] ?? '');
 }

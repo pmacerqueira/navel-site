@@ -198,21 +198,18 @@ async function main() {
 
   const lines = []
   lines.push('# ── Colar estes comandos no cPanel → Cron Jobs (ou ajustar horários) ──')
-  lines.push('# Apagar linhas antigas que usem: onedrive-cron.php?token=...')
+  lines.push('# OneDrive: usa POST (evita 403 "Acesso negado" quando o alojamento bloqueia o header X-Cron-Token).')
+  lines.push('# Se preferires o header ou ?token=, ver documentos-api-config.sample.php.')
   lines.push('')
   if (cronToken) {
+    lines.push(`# OneDrive — token lido do documentos-api-config.php local após build.`)
     lines.push(
-      `# OneDrive — a cada 15 min (exemplo). Token já está no teu documentos-api-config.php.`,
-    )
-    lines.push(
-      `*/15 * * * * curl -fsS -m 300 -H "X-Cron-Token: ${cronToken}" "${siteUrl}/onedrive-cron.php" >> $HOME/logs/onedrive-cron.log 2>&1`,
+      `*/15 * * * * curl -fsS -m 300 -X POST -d "token=${cronToken}" "${siteUrl}/onedrive-cron.php" >> $HOME/logs/onedrive-cron.log 2>&1`,
     )
   } else {
+    lines.push('# OneDrive: colar o valor de onedrive_cron_token em TOKEN abaixo.')
     lines.push(
-      '# OneDrive: preencher TOKEN — no cPanel, abre documentos-api-config.php e copia o valor de onedrive_cron_token',
-    )
-    lines.push(
-      `*/15 * * * * curl -fsS -m 300 -H "X-Cron-Token: TOKEN" "${siteUrl}/onedrive-cron.php" >> $HOME/logs/onedrive-cron.log 2>&1`,
+      `*/15 * * * * curl -fsS -m 300 -X POST -d "token=TOKEN" "${siteUrl}/onedrive-cron.php" >> $HOME/logs/onedrive-cron.log 2>&1`,
     )
   }
   lines.push('')

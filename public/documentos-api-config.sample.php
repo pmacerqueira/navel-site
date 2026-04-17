@@ -107,11 +107,14 @@ return [
      * SEGURANCA: o `onedrive-cron.php` aceita o token **apenas via header**
      *   `X-Cron-Token: <token>`  (tokens em query strings ficam em access logs).
      *
-     * Cron sugerido (cPanel → Cron Jobs):
-     *   * /15 * * * * curl -s -H "X-Cron-Token: COLOQUE_O_TOKEN" "https://navel.pt/onedrive-cron.php" > /dev/null
+     * Cron sugerido (cPanel → Cron Jobs) — usar POST se o servidor devolver 403
+     * ao usar o header X-Cron-Token (ModSecurity comum em alojamentos PT):
+     *   * /15 * * * * curl -fsS -m 300 -X POST -d "token=COLOQUE_O_TOKEN" "https://navel.pt/onedrive-cron.php" >> $HOME/logs/onedrive-cron.log 2>&1
      *
-     * Para compatibilidade temporaria com crons antigos (que usam `?token=`),
-     * defina `onedrive_cron_allow_query` => true. Remover apos migracao.
+     * Alternativa com header (quando não há bloqueio):
+     *   curl -fsS -m 300 -H "X-Cron-Token: COLOQUE_O_TOKEN" "https://navel.pt/onedrive-cron.php"
+     *
+     * Crons antigos com `?token=` na URL: defina `onedrive_cron_allow_query` => true.
      */
     'onedrive_cron_token'         => '',
     'onedrive_cron_allow_query'   => false,

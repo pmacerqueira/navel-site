@@ -1,6 +1,9 @@
 # Segredos em cPanel (NAVEL + AT_Manut) — variáveis de ambiente
 
 > Contexto: resposta de suporte **CiberConceito** (ticket #225838, Renato Rodrigues) para API PHP em alojamento partilhado.
+>
+> **Runbook operacional canónico** (rotação, rollback, troubleshooting, checklist anual): **`AT_Manut/docs/CPANEL-RUNBOOK-SEGREDOS.md`**.
+> Este ficheiro cobre a **arquitectura** (porquê) e o **papel do `navel-site`** como operador (scripts). Para procedimentos passo-a-passo em produção, seguir o runbook.
 
 ## Resumo rápido (validado 2026-04-24 em produção)
 
@@ -52,8 +55,23 @@ Para escape dentro de `[E=…]`: `\` → `\\`, `,` → `\,`, `]` → `\]`. Os re
 
 A configuração principal está em **`documentos-api-config.php`** (array PHP gitignored no servidor). Migrar cada chave para `getenv()` + `[E=…]` seria uma evolução separada; até lá, continuar a manter o ficheiro fora do Git no servidor.
 
+## Auditoria cruzada (após qualquer alteração)
+
+```powershell
+cd navel-site
+node scripts/cpanel-audit-crosssite.mjs
+```
+
+Verifica integridade do `.htaccess` raiz e `/api/`, listagem dos ficheiros
+`.bak-*` e `.disabled-*`, e faz smoke-tests HTTPS aos 10 endpoints críticos
+dos dois projectos (`documentos-api.php`, `area-reservada`,
+`keep-alive-supabase.php`, `onedrive-callback.php`, `taxonomy-nodes.php`,
+`navel-documentos-upload.php`, `data.php`, e rejeição de ficheiros
+bloqueados). Usar sempre depois de rodar segredos.
+
 ## Referências
 
+- **`AT_Manut/docs/CPANEL-RUNBOOK-SEGREDOS.md`** — runbook operacional completo (fluxos, rollback, troubleshooting, checklist anual).
 - `AT_Manut/CHANGELOG.md` — entrada `[Operação] — 2026-04-24` com diagnóstico completo.
 - `AT_Manut/docs/DEPLOY_CHECKLIST.md` — receita operacional.
 - `AT_Manut/docs/SEGURANCA-REVISAO-NAVEL-PT.md` — revisão de segurança actualizada.

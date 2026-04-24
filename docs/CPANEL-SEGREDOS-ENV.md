@@ -2,40 +2,58 @@
 
 > Contexto: resposta de suporte **CiberConceito** (ticket #225838, Renato Rodrigues) para API PHP em alojamento partilhado.
 
-## Recomendação do alojador
+## Resumo rápido (validado 2026-04-24 em produção)
 
-1. Definir variáveis com **`SetEnv`** num **`.htaccess`** na pasta onde corre o PHP relevante.
-2. Ler em PHP com **`getenv()`** ou **`$_ENV`** (evitar `putenv()` disperso no código).
-3. Manter **`.htaccess`** protegido contra acesso directo (o Apache não serve normalmente este ficheiro; na raiz do site já existe bloqueio de ficheiros sensíveis).
+- Alojamento actual: **LiteSpeed + LSPHP 8.1** (SAPI `litespeed`).
+- `mod_env` **não** está carregado → `SetEnv` em `.htaccess` é **ignorado**.
+- O método web-native que funciona: **`RewriteRule ^ - [E=KEY:VALUE]`** (mod_rewrite). Os valores aparecem em `$_SERVER[KEY]` e `getenv(KEY)` intactos, inclusive com caracteres especiais (`' " + { } ~`).
+- `SetEnvIf` também chega ao PHP, mas envolve o valor em aspas literais — não fiável.
+- Alternativa operacional mantida: `config.deploy-secrets.php` com `putenv(…)` só no servidor (gitignored, bloqueado via `FilesMatch`).
+
+## Scripts de operação (em `navel-site/scripts/`)
+
+| Script | Função |
+|---|---|
+| `cpanel-migrate-setenv.mjs` | Lê `config.deploy-secrets.php` no servidor, gera `.htaccess` com `RewriteRule [E=…]` para cada `ATM_*`, faz backup `.htaccess.bak-TS` e publica. `--dry` por defeito; `--yes` aplica; `--remove-fallback` renomeia o fallback para `.disabled-TS`. |
+| `cpanel-verify-setenv.mjs` | Renomeia o fallback para `.test-disabled-TS`, faz smoke-test HTTPS ao `/api/data.php` (login inválido + pedido sem token); só confirma o arquivamento definitivo se ambos forem 4xx esperados — rollback automático em qualquer 5xx. |
+| `cpanel-rollback-htaccess.mjs` | Repõe o `.htaccess` à versão do repo (com backup `.bak-TS`). Usar só se for preciso reverter a migração. |
+
+Exemplo típico de upgrade dos segredos em produção:
+
+```powershell
+cd navel-site
+node scripts/cpanel-migrate-setenv.mjs          # dry-run: confere vars detectadas
+node scripts/cpanel-migrate-setenv.mjs --yes    # aplica com backup
+node scripts/cpanel-verify-setenv.mjs --yes     # confirma SetEnv sozinho + arquiva fallback
+```
 
 ## AT_Manut — `public_html/api/`
 
-- Modelo versionado: no repo **AT_Manut**, `servidor-cpanel/api/.htaccess` inclui um bloco comentado com `SetEnv` para `ATM_*`.
-- Em produção: descomentar e preencher **só no servidor**; fazer deploy do `.htaccess` com o bloco activo (sem commitar segredos no Git).
-- `config.php` já usa **`atm_env()`**, compatível com o que o Apache expõe após `SetEnv`.
-- **Fallback:** `config.deploy-secrets.php` (gitignored) se `mod_env` não estiver disponível.
+- Repo: `servidor-cpanel/api/.htaccess` documenta a arquitectura e contém apenas o bloco `FilesMatch` de defesa em profundidade (bloqueia `test-*.php`, `teste-*.php`, `clear-cache.php`, `ingest-istobal-retro.php`, `config.deploy-secrets.php(.disabled-*)`, `atm_report_auth.secret.php`, `.htaccess.bak-*`).
+- O `.htaccess` **real** no servidor é gerado pelo script e **não** versionado.
+- `config.php` lê via **`atm_env()`** (`getenv`, `$_ENV`, `$_SERVER`, `REDIRECT_*`).
+- `config.deploy-secrets.php.example` serve de modelo para o fallback `putenv(…)`.
 
 ## navel-site — `public_html/` (raiz)
 
-Scripts PHP na raiz (ex.: `keep-alive-supabase.php`) usam **`getenv('SUPABASE_URL')`**, etc. Podes definir no **`public/.htaccess`** (deploy para `public_html/.htaccess`) um bloco análogo:
+Scripts PHP na raiz (ex.: `keep-alive-supabase.php`, `documentos-api.php`) correm no **mesmo SAPI LSPHP**, pelo que o método `SetEnv` continua inviável. Se for necessário injectar segredos via `.htaccess`:
 
 ```apache
-# Exemplo — preencher no servidor; não versionar valores reais.
-# <IfModule mod_env.c>
-#   SetEnv SUPABASE_URL https://xxx.supabase.co
-#   SetEnv SUPABASE_ANON_KEY ...
-#   # ou os nomes VITE_* se o script fizer fallback para eles
-# </IfModule>
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^ - [E=SUPABASE_URL:https://xxx.supabase.co]
+  RewriteRule ^ - [E=SUPABASE_ANON_KEY:eyJ...]
+</IfModule>
 ```
+
+Para escape dentro de `[E=…]`: `\` → `\\`, `,` → `\,`, `]` → `\]`. Os restantes caracteres passam inalterados (incluindo aspas e chavetas).
 
 ### `documentos-api.php`
 
-Hoje a configuração principal está em **`documentos-api-config.php`** (ficheiro PHP de retorno de array, **gitignored** em produção). Migrar cada chave para `getenv()` + `SetEnv` seria uma evolução separada; até lá:
-
-- manter **`documentos-api-config.php`** fora do Git no servidor;
-- credenciais **OneDrive** já podem usar **`getenv('MICROSOFT_*')`** como fallback em `onedrive-lib.php` (ver código).
+A configuração principal está em **`documentos-api-config.php`** (array PHP gitignored no servidor). Migrar cada chave para `getenv()` + `[E=…]` seria uma evolução separada; até lá, continuar a manter o ficheiro fora do Git no servidor.
 
 ## Referências
 
-- AT_Manut: `docs/DEPLOY_CHECKLIST.md`, `servidor-cpanel/api/config.php`.
-- Integração biblioteca: `docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md`.
+- `AT_Manut/CHANGELOG.md` — entrada `[Operação] — 2026-04-24` com diagnóstico completo.
+- `AT_Manut/docs/DEPLOY_CHECKLIST.md` — receita operacional.
+- `AT_Manut/docs/SEGURANCA-REVISAO-NAVEL-PT.md` — revisão de segurança actualizada.

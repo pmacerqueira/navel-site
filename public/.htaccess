@@ -1,14 +1,16 @@
 # Navel - Açores, Lda. | Apache config for cPanel
 #
-# Segredos PHP (recomendação CiberConceito, alojamento partilhado): SetEnv + getenv.
-# Descomentar e preencher APENAS no servidor — não versionar valores reais.
-# Ver docs/CPANEL-SEGREDOS-ENV.md
+# Segredos para PHP em alojamento partilhado: neste plano (LiteSpeed + LSPHP)
+# o `mod_env` NÃO está carregado, pelo que `SetEnv` é ignorado. A forma que
+# funciona é `RewriteRule ^ - [E=KEY:VALUE]` (ver bloco mod_rewrite abaixo ou
+# num `.htaccess` da subpasta onde corre o PHP). Ver docs/CPANEL-SEGREDOS-ENV.md.
 #
-# <IfModule mod_env.c>
-#   SetEnv SUPABASE_URL https://xxx.supabase.co
-#   SetEnv SUPABASE_ANON_KEY ...
-#   # SetEnv VITE_SUPABASE_URL ...
-#   # SetEnv VITE_SUPABASE_ANON_KEY ...
+# Exemplo — apenas descomentar e preencher no servidor; não versionar valores:
+#
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteRule ^ - [E=SUPABASE_URL:https://xxx.supabase.co]
+#   RewriteRule ^ - [E=SUPABASE_ANON_KEY:eyJ...]
 # </IfModule>
 
 # Bloquear acesso a ficheiros sensíveis

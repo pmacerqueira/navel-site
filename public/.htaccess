@@ -1,4 +1,15 @@
 # Navel - Açores, Lda. | Apache config for cPanel
+#
+# Segredos PHP (recomendação CiberConceito, alojamento partilhado): SetEnv + getenv.
+# Descomentar e preencher APENAS no servidor — não versionar valores reais.
+# Ver docs/CPANEL-SEGREDOS-ENV.md
+#
+# <IfModule mod_env.c>
+#   SetEnv SUPABASE_URL https://xxx.supabase.co
+#   SetEnv SUPABASE_ANON_KEY ...
+#   # SetEnv VITE_SUPABASE_URL ...
+#   # SetEnv VITE_SUPABASE_ANON_KEY ...
+# </IfModule>
 
 # Bloquear acesso a ficheiros sensíveis
 <FilesMatch "^\.">
@@ -63,5 +74,5 @@
   # max-age=63072000 (2 anos) + includeSubDomains + preload (candidato a hstspreload.org).
   Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
   # connect-src: navel.pt + www — AT_Manut (/manut) chama /api/data.php; www vs apex são origens diferentes para CSP
-  Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://embed.tawk.to; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://navel.pt https://www.navel.pt https://*.supabase.co https://*.tawk.to; frame-src 'self' https://embed.tawk.to; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://embed.tawk.to; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://navel.pt https://www.navel.pt https://*.supabase.co https://*.tawk.to; frame-src 'self' https://embed.tawk.to blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
 </IfModule>

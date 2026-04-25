@@ -4,7 +4,7 @@
 
 PRIMÁRIO (automatizado, rápido)
 -------------------------------
-[ ] npm run build  (actualiza dist/, inclui merge privacy+rgpd p/ src/locales)
+[ ] npm run build  (actualiza dist/; merge privacy+rgpd+patch PT → src/locales)
 [ ] npm run deploy:dry  (ver o que vai ser enviado; nada escreve)
 [ ] npm run deploy:all -- --yes  (envia site + PHP via FTPS incremental)
 
@@ -28,6 +28,6 @@ DEPOIS (ambos os fluxos)
 [ ] https://navel.pt/privacidade (PT e EN: sem chaves tipo privacy.xxx) e /rgpd e /condicoes-gerais (F5 = SPA)
 [ ] https://navel.pt/sitemap.xml inclui /condicoes-gerais e /robots.txt
 [ ] Formulário de contacto (email em comercial@navel.pt)
-[ ] Idiomas PT, EN, ES
+[ ] Idiomas PT, EN, ES (páginas públicas: corpo em PT quando bandeira PT; sem mistura EN no meio)
 
 ========================================

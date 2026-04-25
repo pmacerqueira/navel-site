@@ -55,6 +55,38 @@ const ONDRV_TOMBSTONES_FILE = '.navel-onedrive-tombstones.json';
 const ONDRV_TOMBSTONE_TTL   = 604800; // 7 dias
 const ONDRV_RECONCILE_MAX_DEPTH = 4;
 
+/**
+ * Prefixo de caminho OneDrive (Graph parentReference.path) com comparacao
+ * case-insensitive — evita relPath errado (só o nome do ficheiro) quando
+ * a capitalizacao difere entre token e API.
+ */
+function ondrv_path_starts_with_ci(string $path, string $prefix): bool
+{
+    if ($prefix === '' || $prefix === '/') {
+        return true;
+    }
+    $plen = strlen($prefix);
+    if ($plen > strlen($path)) {
+        return false;
+    }
+    return strncmp(strtolower($path), strtolower($prefix), $plen) === 0;
+}
+
+/**
+ * Remove prefixo $prefix de $path quando coincide (case-insensitive).
+ */
+function ondrv_strip_prefix_ci(string $path, string $prefix): string
+{
+    if ($prefix === '' || $prefix === '/') {
+        return $path;
+    }
+    $plen = strlen($prefix);
+    if (!ondrv_path_starts_with_ci($path, $prefix)) {
+        return $path;
+    }
+    return (string)substr($path, $plen);
+}
+
 // Orcamento de tempo por pedido HTTP sincrono (segundos).
 // O reverse proxy do cPanel fecha a ligacao ao fim de ~5 min, por isso
 // paramos antes disso, gravamos progresso (deltaLink + itemsMap) e
@@ -69,6 +101,9 @@ const ONDRV_FILE_DOWNLOAD_TIMEOUT = 90;
 const ONDRV_GRAPH_MAX_RETRIES = 8;
 // Paginas delta menores = menos picos de memoria e timeouts por pedido (Graph suporta $top).
 const ONDRV_DELTA_PAGE_TOP = 150;
+// Maximo de paginas Graph por pedido (nextLink). O orcamento de tempo e o limite principal;
+// este teto evita loops extremos se o relogio falhar. Bibliotecas grandes precisam de >50 paginas.
+const ONDRV_DELTA_MAX_PAGES = 500;
 
 // Compat: nome da pasta Comercial (legacy).
 const ONDRV_COMERCIAL_ROOT  = 'Comercial';
@@ -1075,11 +1110,13 @@ function ondrv_normalize_item(array $item, string $rootOneDrivePath, string $loc
 
     $rootPrefix = '/' . trim($rootOneDrivePath, '/');
     $rel = '';
-    if ($rootPrefix === '/' || str_starts_with($absParent, $rootPrefix)) {
-        $tail = $rootPrefix === '/' ? $absParent : substr($absParent, strlen($rootPrefix));
+    if ($rootPrefix === '/' || ondrv_path_starts_with_ci($absParent, $rootPrefix)) {
+        $tail = $rootPrefix === '/' ? $absParent : ondrv_strip_prefix_ci($absParent, $rootPrefix);
         $tail = trim((string)$tail, '/');
         $rel = $tail === '' ? $name : $tail . '/' . $name;
     } else {
+        // Fallback raro: parent nao sob o root conhecido (path / encoding). Evitar colisoes:
+        // manter só o nome perde subpastas; o itemsMap ainda indexa por id unico.
         $rel = $name;
     }
     $rel = trim($rel, '/');
@@ -1140,7 +1177,7 @@ function ondrv_sync_delta_for_mount(string $rootReal, array $cfg, array $mount, 
     $isBidirectional = (string)($mount['direction'] ?? '') === 'bidirectional';
     $url = $initialUrl;
     $newDeltaLink = '';
-    $maxPages = 50;
+    $maxPages = ONDRV_DELTA_MAX_PAGES;
     $deadline = microtime(true) + $budget;
     $timedOut = false;
     while ($url !== '' && $stats['pages'] < $maxPages) {

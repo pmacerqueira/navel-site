@@ -9,6 +9,7 @@ Regras para evitar exposição de segredos no `navel-site`.
 - Não guardar passwords/tokens/chaves reais em `.md`/`.txt` do projeto.
 - Usar `.env` local para variáveis de ambiente.
 - Manter `.env` fora do Git (já coberto pelo `.gitignore`).
+- **Workspace NAVEL:** ficheiro consolidado **`C:\Cursor_Projetos\NAVEL\.navel-secrets\navel-secrets.env`** (fora dos repos Git) — manter alinhado com `navel-site/.env` e `.env.cpanel`; não commitar.
 
 ---
 
@@ -22,23 +23,15 @@ Regras para evitar exposição de segredos no `navel-site`.
 Opcional (scripts internos):
 - `SUPABASE_SERVICE_ROLE_KEY` (nunca no frontend)
 
-### `.env.cpanel` (deploy automático FTPS/SFTP/UAPI — committed em `.env.cpanel.example`)
+### `.env.cpanel` (deploy — template `.env.cpanel.example`)
 
-Template completo em `.env.cpanel.example`. Campos ativos por defeito (FTPS):
+- **SFTP** (ex. navel.pt / CiberConceito, porta **11022**): user = conta **principal** SSH; `CPANEL_REMOTE_ROOT` absoluto até `public_html`.
+- **FTPS:** subconta dedicada (`deploy@…`); `CPANEL_REMOTE_ROOT=/` quando o login FTP já está em `public_html`.
+- `CPANEL_FTP_TLS_STRICT=false` em alguns hosts (certificado do hostname interno).
 
-- `CPANEL_HOST`, `CPANEL_REMOTE_ROOT`, `CPANEL_PROTOCOL=ftps`
-- `CPANEL_FTP_HOST`, `CPANEL_FTP_PORT`, `CPANEL_FTP_USER`, `CPANEL_FTP_PASSWORD`
-- `CPANEL_FTP_SECURE=true`, `CPANEL_FTP_TLS_STRICT` (false em hosts Ciberserver
-  e similares, onde o certificado TLS é do hostname interno)
+Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`, `docs/HOSTING-CIBERCONCEITO-NAVEL.md`.
 
-Alternativas (SFTP, UAPI) documentadas em `.env.cpanel.example` e
-`docs/DEPLOY-AUTOMATICO-CPANEL.md`.
-
-**Regras específicas para `.env.cpanel`:**
-- Conta FTP dedicada, **não** a conta cPanel principal.
-- Chroot à pasta `/home/<user>/public_html` para limitar escopo.
-- Rotacionar password a cada 3-6 meses ou ao suspeitar fuga.
-- Nunca colar passwords em chats/issues/commits.
+**Regras:** não commitar; passwords fortes; rotacionar após fuga; evitar colar passwords em chats públicos.
 
 ---
 

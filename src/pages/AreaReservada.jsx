@@ -22,6 +22,9 @@ import {
   cpanelOnedrivePurgeOrphans,
   cpanelOnedriveDebugMount,
   cpanelOnedriveForceReconcile,
+  cpanelAuditLog,
+  cpanelRecentDocuments,
+  cpanelSetMetadata,
 } from '../lib/documentosCpanelApi'
 import {
   ASSISTENCIA_TECNICA_ROOT,
@@ -35,6 +38,24 @@ import {
 } from '../lib/documentosSchema'
 import PortalCommandPalette from '../components/PortalCommandPalette'
 import DocumentPreviewModal from '../components/DocumentPreviewModal'
+import {
+  IconAdd,
+  IconArrowDownload,
+  IconArrowLeft,
+  IconArrowSync,
+  IconArrowUpload,
+  IconCamera,
+  IconChevronDown,
+  IconCloud,
+  IconCloudArrowDown,
+  IconCloudArrowUp,
+  IconFileType,
+  IconFolder,
+  IconFolderOpen,
+  IconMoreHorizontal,
+  IconSearch,
+  IconWrenchScrewdriver,
+} from '../components/FluentIcons'
 
 const ONEDRIVE_MOUNT_FOLDERS = {
   comercial: COMERCIAL_ROOT,
@@ -44,6 +65,14 @@ const ONEDRIVE_MOUNT_FOLDERS = {
 const BUCKET = 'documentos'
 const useCpanelDocs = isCpanelDocumentosMode()
 const FOLDER_MARKER = '.navel-folder'
+
+function atManutEquipamentosUrl(subcategoriaId) {
+  const base = (import.meta.env.VITE_AT_MANUT_BASE?.trim() || '').replace(/\/$/, '')
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const root = base || `${origin}/manut`
+  const q = subcategoriaId ? `?focusSubcategoria=${encodeURIComponent(String(subcategoriaId))}` : ''
+  return `${root}/equipamentos${q}`
+}
 
 function isFile(item) {
   return item.metadata?.mimetype != null || (item.metadata?.size != null && item.metadata?.size > 0)
@@ -92,15 +121,6 @@ function detectFileType(itemName = '', mimetype = '') {
 const thumbCache = new Map()
 const thumbInflight = new Map()
 
-function fileTypeIcon(type) {
-  switch (type) {
-    case 'pdf': return '📕'
-    case 'image': return '🖼'
-    case 'document': return '📄'
-    default: return '📎'
-  }
-}
-
 const FileThumbnail = memo(function FileThumbnail({ fullPath, fileType, fileName, token }) {
   const [url, setUrl] = useState(() => thumbCache.get(fullPath) || null)
   const [errored, setErrored] = useState(false)
@@ -145,7 +165,7 @@ const FileThumbnail = memo(function FileThumbnail({ fullPath, fileType, fileName
       {fileType === 'image' && !errored ? (
         <span className="doc-file-thumb__skeleton" />
       ) : (
-        <span className="doc-file-thumb__icon">{fileTypeIcon(fileType)}</span>
+        <span className="doc-file-thumb__icon"><IconFileType type={fileType} /></span>
       )}
       <span className="doc-file-thumb__ext">{(fileName.split('.').pop() || '').slice(0, 4).toLowerCase()}</span>
     </span>
@@ -283,6 +303,11 @@ export default function AreaReservada() {
   const [preview, setPreview] = useState({ open: false, title: '', blobUrl: null, fileType: '' })
   const [versionHistory, setVersionHistory] = useState({})
   const [auditLog, setAuditLog] = useState([])
+  const [recentDocuments, setRecentDocuments] = useState([])
+  const [fileSort, setFileSort] = useState({ key: 'date', dir: 'desc' })
+  const [selectedForDelete, setSelectedForDelete] = useState([])
+  const [metaModal, setMetaModal] = useState(null)
+  const [metaSaving, setMetaSaving] = useState(false)
   const [taxonomyNodes, setTaxonomyNodes] = useState([])
   const [openHistoryPath, setOpenHistoryPath] = useState(null)
   const [onedriveStatus, setOnedriveStatus] = useState(null)
@@ -290,6 +315,8 @@ export default function AreaReservada() {
   const [onedriveFeedback, setOnedriveFeedback] = useState(null)
   const [onedriveSyncProgress, setOnedriveSyncProgress] = useState(null)
   const ensuringRootsRef = useRef(false)
+  const rootEnsuredOnceRef = useRef(false)
+  const itemsRef = useRef([])
   const fileInputRef = useRef(null)
   const cameraInputRef = useRef(null)
   const dragDepthRef = useRef(0)
@@ -297,6 +324,7 @@ export default function AreaReservada() {
   const [accessToken, setAccessToken] = useState(null)
 
   useEffect(() => {
+    if (useCpanelDocs) return
     try {
       const versionsRaw = window.localStorage.getItem('portalFileVersions')
       const auditRaw = window.localStorage.getItem('portalAuditLog')
@@ -306,6 +334,44 @@ export default function AreaReservada() {
       /* noop */
     }
   }, [])
+
+  useEffect(() => {
+    if (!useCpanelDocs || !accessToken) return undefined
+    let cancelled = false
+    cpanelRecentDocuments(accessToken, 10)
+      .then((rows) => {
+        if (!cancelled) setRecentDocuments(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setRecentDocuments([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accessToken, currentPath])
+
+  useEffect(() => {
+    if (!useCpanelDocs || !isAdmin || !accessToken) return undefined
+    let cancelled = false
+    cpanelAuditLog(accessToken, { limit: 250 })
+      .then((rows) => {
+        if (cancelled) return
+        setAuditLog(
+          rows.map((r) => ({
+            at: r.timestamp,
+            user: r.userEmail,
+            action: r.action,
+            target: r.path,
+          })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setAuditLog([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [useCpanelDocs, isAdmin, accessToken, currentPath])
 
   useEffect(() => {
     if (!supabase) return undefined
@@ -403,6 +469,9 @@ export default function AreaReservada() {
    */
   const atHidesTaxonomyVirtualFolders = false
 
+  // Usamos um boolean derivado de onedriveStatus para evitar recriar loadTaxonomy
+  // sempre que o objecto status é substituído por uma nova referência.
+  const onedriveReady = Boolean(onedriveStatus)
   const loadTaxonomy = useCallback(async () => {
     if (!useCpanelDocs || !supabase) return
     try {
@@ -410,7 +479,7 @@ export default function AreaReservada() {
       const token = sessionData?.session?.access_token
       if (!token) return
       // Defensivo: sem status OneDrive, nao disparamos sync_taxonomy_tree (evita colisoes).
-      if (!onedriveStatus) return
+      if (!onedriveReady) return
       if (!atSkipsTaxonomySync) {
         await cpanelSyncTaxonomyTree(token).catch(() => null)
       }
@@ -419,7 +488,7 @@ export default function AreaReservada() {
     } catch {
       setTaxonomyNodes([])
     }
-  }, [supabase, onedriveStatus, atSkipsTaxonomySync])
+  }, [supabase, onedriveReady, atSkipsTaxonomySync])
 
   const loadItems = useCallback(async (path = '') => {
     if (!supabase) {
@@ -467,8 +536,11 @@ export default function AreaReservada() {
 
   const ensureRootFolders = useCallback(async () => {
     if (!supabase || currentPath !== '' || ensuringRootsRef.current) return
+    // Ler items via ref para não recriar o callback a cada mudança de items
+    // (senão o useEffect que o observa dispara em loop sempre que loadItems setta items).
+    const currentItems = itemsRef.current
     const folderNames = new Set(
-      items.filter((i) => !isFile(i)).map((i) => i.name)
+      currentItems.filter((i) => !isFile(i)).map((i) => i.name)
     )
     const missing = DOCUMENTOS_ROOT_FOLDERS.filter(({ slug }) => !folderNames.has(slug))
     if (missing.length === 0) return
@@ -494,7 +566,7 @@ export default function AreaReservada() {
     } finally {
       ensuringRootsRef.current = false
     }
-  }, [supabase, currentPath, items, loadItems, useCpanelDocs])
+  }, [supabase, currentPath, loadItems, useCpanelDocs])
 
   const loadOnedriveStatus = useCallback(async () => {
     if (!useCpanelDocs || !supabase) return
@@ -559,7 +631,7 @@ export default function AreaReservada() {
       let lastTick = null
       while (!done) {
         iteration += 1
-        const tick = await cpanelOnedriveSyncTick(token, mountId || 'at', 90)
+        const tick = await cpanelOnedriveSyncTick(token, mountId || 'at', 120)
         lastTick = tick
         lastOk = Boolean(tick?.ok)
         const est = tick?.estimate || {}
@@ -823,11 +895,23 @@ export default function AreaReservada() {
     window.history.replaceState({}, '', next)
   }, [t])
 
+  // Mantém um snapshot estável de items para o ensureRootFolders (via ref),
+  // evitando o loop de render.
   useEffect(() => {
-    if (!loading && !error && currentPath === '') {
-      void ensureRootFolders()
-    }
-  }, [loading, error, currentPath, items, ensureRootFolders])
+    itemsRef.current = items
+  }, [items])
+
+  // Garante as pastas raiz UMA VEZ por sessão, depois do primeiro list concluído.
+  // Se o servidor não conseguir persistir (permissões, admin), não reentra em loop.
+  useEffect(() => {
+    if (rootEnsuredOnceRef.current) return
+    if (loading || error) return
+    if (currentPath !== '') return
+    rootEnsuredOnceRef.current = true
+    void ensureRootFolders()
+    // deliberadamente sem dep em ensureRootFolders — ref guarda-se uma única vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, currentPath])
 
   const handleCreateBucket = async () => {
     if (useCpanelDocs || !supabase || !isAdmin) return
@@ -915,8 +999,21 @@ export default function AreaReservada() {
       .map((f) => {
         const mimetype = f.metadata?.mimetype || ''
         const fullPath = currentPath ? `${currentPath}/${f.name}` : f.name
-        const history = versionHistory[fullPath] || []
+        const serverVers = Array.isArray(f.serverVersions) ? f.serverVersions : []
+        const history = useCpanelDocs
+          ? [...serverVers]
+            .map((v) => ({
+              at: v.archivedAt,
+              by: v.archivedBy,
+              metadata: { title: `v${v.version}` },
+              archivePath: v.path,
+            }))
+            .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+          : (versionHistory[fullPath] || [])
         const docType = f.metadata?.documentType || ''
+        const versionCount = useCpanelDocs
+          ? Math.max(1, Number(f.currentVersion) || 1)
+          : Math.max(1, history.length || 1)
         return {
           ...f,
           fullPath,
@@ -924,13 +1021,32 @@ export default function AreaReservada() {
           sizeLabel: formatBytes(f.metadata?.size),
           dateLabel: formatDate(f.updated_at || f.created_at || f.last_accessed_at, locale),
           history,
-          versionCount: history.length || 1,
+          versionCount,
           documentType: docType,
         }
       })
       .filter((f) => f.name.toLowerCase().includes(normalizedSearch))
       .filter((f) => typeFilter === 'all' || f.fileType === typeFilter)
   ), [files, currentPath, versionHistory, normalizedSearch, typeFilter, locale])
+
+  const sortedEnrichedFiles = useMemo(() => {
+    const arr = [...enrichedFiles]
+    const mult = fileSort.dir === 'asc' ? 1 : -1
+    const { key } = fileSort
+    arr.sort((a, b) => {
+      if (key === 'name') return mult * a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' })
+      if (key === 'size') return mult * ((a.metadata?.size || 0) - (b.metadata?.size || 0))
+      if (key === 'type') return mult * String(a.fileType || '').localeCompare(String(b.fileType || ''))
+      const da = Date.parse(a.updated_at || a.created_at || '') || 0
+      const db = Date.parse(b.updated_at || b.created_at || '') || 0
+      return mult * (da - db)
+    })
+    return arr
+  }, [enrichedFiles, fileSort])
+
+  useEffect(() => {
+    setSelectedForDelete([])
+  }, [currentPath])
 
   const folderDisplayName = useMemo(() => {
     const taxMap = new Map()
@@ -1093,11 +1209,45 @@ export default function AreaReservada() {
   const ingestFiles = useCallback((fileList) => {
     const arr = Array.from(fileList || []).filter((f) => f && f.size >= 0)
     if (arr.length === 0) return
-    setSelectedFiles((prev) => [...prev, ...arr])
-    setUploadMeta((prev) => {
-      if (prev.title) return prev
-      const first = arr[0]
-      return first ? { ...prev, title: first.name.replace(/\.[^.]+$/, '') } : prev
+    setSelectedFiles((prev) => {
+      const next = [...prev, ...arr]
+      const total = next.length
+      queueMicrotask(() => {
+        if (total > 1) {
+          setUploadMeta((m) => ({ ...m, title: '' }))
+        } else if (total === 1) {
+          setUploadMeta((m) => {
+            if (m.title) return m
+            const stem = (next[0]?.name || '').replace(/\.[^.]+$/, '')
+            return { ...m, title: stem }
+          })
+        }
+      })
+      return next
+    })
+  }, [])
+
+  const removeSelectedFile = useCallback((index) => {
+    setSelectedFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index)
+      const total = next.length
+      queueMicrotask(() => {
+        if (total === 0) {
+          setUploadStatuses([])
+          setUploadMeta({ title: '', tags: '', note: '' })
+          setUploadDocumentType('')
+          if (fileInputRef.current) fileInputRef.current.value = ''
+          if (cameraInputRef.current) cameraInputRef.current.value = ''
+        } else if (total > 1) {
+          setUploadMeta((m) => ({ ...m, title: '' }))
+        } else {
+          setUploadMeta((m) => {
+            if (m.title) return m
+            return { ...m, title: (next[0]?.name || '').replace(/\.[^.]+$/, '') }
+          })
+        }
+      })
+      return next
     })
   }, [])
 
@@ -1194,7 +1344,11 @@ export default function AreaReservada() {
               extra.documentType = uploadDocumentType
               if (resolvedTaxonomyNodeId) extra.taxonomyNodeId = resolvedTaxonomyNodeId
             }
-            if (uploadMeta.title) extra.versionLabel = uploadMeta.title
+            const vl =
+              selectedFiles.length === 1 && uploadMeta.title.trim() !== ''
+                ? uploadMeta.title.trim()
+                : (originalFile.name || '').replace(/\.[^.]+$/, '').trim() || originalFile.name
+            if (vl) extra.versionLabel = vl
             const noteParts = [uploadMeta.note, uploadMeta.tags].filter(Boolean)
             if (noteParts.length) extra.notes = noteParts.join(' · ')
             await cpanelUploadWithProgress(token, currentPath, file, (pct) => updateStatus(index, { progress: pct }), extra)
@@ -1226,30 +1380,32 @@ export default function AreaReservada() {
 
       updateStatus(index, { status: 'done', progress: 100 })
       uploaded += 1
-      writeVersionHistory((prev) => {
-        const current = prev[uploadPath] || []
-        return {
-          ...prev,
-          [uploadPath]: [
-            ...current,
-            {
-              at: new Date().toISOString(),
-              by: user?.email || 'unknown',
-              metadata: { ...uploadMeta, size: file.size, type: file.type || 'application/octet-stream' },
-            },
-          ],
-        }
-      })
-      writeAuditLog({
-        action: 'upload',
-        target: uploadPath,
-        metadata: {
-          ...uploadMeta,
-          originalSize: originalFile.size,
-          uploadedSize: file.size,
-          compressed: file.size < originalFile.size,
-        },
-      })
+      if (!useCpanelDocs) {
+        writeVersionHistory((prev) => {
+          const current = prev[uploadPath] || []
+          return {
+            ...prev,
+            [uploadPath]: [
+              ...current,
+              {
+                at: new Date().toISOString(),
+                by: user?.email || 'unknown',
+                metadata: { ...uploadMeta, size: file.size, type: file.type || 'application/octet-stream' },
+              },
+            ],
+          }
+        })
+        writeAuditLog({
+          action: 'upload',
+          target: uploadPath,
+          metadata: {
+            ...uploadMeta,
+            originalSize: originalFile.size,
+            uploadedSize: file.size,
+            compressed: file.size < originalFile.size,
+          },
+        })
+      }
     }
     setUploading(false)
     clearUploadDraft()
@@ -1292,7 +1448,6 @@ export default function AreaReservada() {
       setUploading(false)
       setNewFolderName('')
       setShowNewFolder(false)
-      writeAuditLog({ action: 'create_folder', target: base })
       setUploadFeedback({ type: 'success', msg: t('auth.portalFolderCreated') })
       loadItems(currentPath)
       setTimeout(() => setUploadFeedback(null), 3000)
@@ -1333,7 +1488,7 @@ export default function AreaReservada() {
         if (err) throw err
       }
       setUploadFeedback({ type: 'success', msg: t('auth.portalDeleted') })
-      writeAuditLog({ action: 'delete_file', target: fullPath })
+      if (!useCpanelDocs) writeAuditLog({ action: 'delete_file', target: fullPath })
       loadItems(currentPath)
     } catch (err) {
       setUploadFeedback({ type: 'error', msg: err?.message || String(err) })
@@ -1364,7 +1519,7 @@ export default function AreaReservada() {
         await removePathsInChunks(supabase, [...unique])
       }
       setUploadFeedback({ type: 'success', msg: t('auth.portalDeleted') })
-      writeAuditLog({ action: 'delete_folder', target: base })
+      if (!useCpanelDocs) writeAuditLog({ action: 'delete_folder', target: base })
       loadItems(currentPath)
     } catch (err) {
       setUploadFeedback({ type: 'error', msg: err?.message || String(err) })
@@ -1374,14 +1529,105 @@ export default function AreaReservada() {
     }
   }
 
+  const handleBatchDelete = async () => {
+    if (!supabase || !isAdmin || !useCpanelDocs || isInsidePullMount) return
+    const paths = [...selectedForDelete]
+    if (!paths.length) return
+    if (!window.confirm(t('auth.portalBatchDeleteConfirm', { count: paths.length }))) return
+    setUploading(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      if (!token) throw new Error(t('auth.supabaseNotConfigured'))
+      for (const fullPath of paths) {
+        await cpanelDeleteFile(token, fullPath)
+      }
+      setSelectedForDelete([])
+      setUploadFeedback({ type: 'success', msg: t('auth.portalBatchDeleteOk', { count: paths.length }) })
+      loadItems(currentPath)
+    } catch (err) {
+      setUploadFeedback({ type: 'error', msg: err?.message || String(err) })
+    } finally {
+      setUploading(false)
+      setTimeout(() => setUploadFeedback(null), 4000)
+    }
+  }
+
+  const handleSaveMetadata = async () => {
+    if (!metaModal || !supabase || !useCpanelDocs) return
+    setMetaSaving(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      if (!token) throw new Error(t('auth.supabaseNotConfigured'))
+      await cpanelSetMetadata(token, metaModal.fullPath, {
+        documentType: metaModal.documentType,
+        versionLabel: metaModal.versionLabel,
+        notes: metaModal.notes,
+      })
+      setMetaModal(null)
+      setUploadFeedback({ type: 'success', msg: t('auth.portalMetadataSaved') })
+      loadItems(currentPath)
+    } catch (err) {
+      setUploadFeedback({ type: 'error', msg: err?.message || String(err) })
+    } finally {
+      setMetaSaving(false)
+      setTimeout(() => setUploadFeedback(null), 4000)
+    }
+  }
+
+  const refreshServerAudit = useCallback(async () => {
+    if (!useCpanelDocs || !isAdmin || !accessToken) return
+    try {
+      const rows = await cpanelAuditLog(accessToken, { limit: 250 })
+      setAuditLog(
+        rows.map((r) => ({
+          at: r.timestamp,
+          user: r.userEmail,
+          action: r.action,
+          target: r.path,
+        })),
+      )
+    } catch {
+      /* noop */
+    }
+  }, [useCpanelDocs, isAdmin, accessToken])
+
   return (
     <div className="area-reservada-page area-reservada-page--portal">
       <section className="section section--portal">
         <div className="container container--portal-wide">
           <div className="doc-portal">
-            <header className="doc-portal__header">
-              <div className="doc-portal__header-main">
-                <h1 className="doc-portal__title">{t('auth.areaTitle')}</h1>
+            <div className="doc-portal__shell">
+              <div className="doc-portal__shell-top">
+                <div className="doc-portal__brand">
+                  <p className="doc-portal__eyebrow">{t('auth.portalEyebrow')}</p>
+                  <h1 className="doc-portal__title">{t('auth.areaTitle')}</h1>
+                </div>
+                <MenuDropdown
+                  align="right"
+                  label={user?.email ?? ''}
+                  trigger={
+                    <span className="doc-portal__user-chip">
+                      <span className="doc-portal__user-avatar" aria-hidden>
+                        {(user?.email || '?').slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="doc-portal__user-email">{user?.email ?? ''}</span>
+                      <span className="doc-portal__user-caret" aria-hidden><IconChevronDown size={12} /></span>
+                    </span>
+                  }
+                >
+                  {isAdmin && (
+                    <Link to="/admin" className="doc-menu__item" role="menuitem">
+                      {t('auth.adminPanel')}
+                    </Link>
+                  )}
+                  <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void signOut()}>
+                    {t('auth.signOut')}
+                  </button>
+                </MenuDropdown>
+              </div>
+              <div className="doc-portal__shell-crumb-row">
                 <nav className="doc-portal__breadcrumb" aria-label={t('auth.portalBreadcrumbLabel')}>
                   <button type="button" className="doc-portal__crumb doc-portal__crumb--link" onClick={() => goBreadcrumb(-1)}>
                     {t('auth.portalBreadcrumbRoot')}
@@ -1395,30 +1641,108 @@ export default function AreaReservada() {
                     </span>
                   ))}
                 </nav>
+                {useCpanelDocs && resolvedTaxonomyNodeId && relativePathUnderAssistenciaRoot(currentPath) != null ? (
+                  <a
+                    href={atManutEquipamentosUrl(resolvedTaxonomyNodeId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="doc-portal__link-external doc-portal__link-external--crumb"
+                  >
+                    {t('auth.portalOpenAtManut')}
+                  </a>
+                ) : null}
               </div>
-              <MenuDropdown
-                align="right"
-                label={user?.email ?? ''}
-                trigger={
-                  <span className="doc-portal__user-chip">
-                    <span className="doc-portal__user-avatar" aria-hidden>
-                      {(user?.email || '?').slice(0, 1).toUpperCase()}
-                    </span>
-                    <span className="doc-portal__user-email">{user?.email ?? ''}</span>
-                    <span className="doc-portal__user-caret" aria-hidden>▾</span>
-                  </span>
-                }
-              >
-                {isAdmin && (
-                  <Link to="/admin" className="doc-menu__item" role="menuitem">
-                    {t('auth.adminPanel')}
-                  </Link>
-                )}
-                <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void signOut()}>
-                  {t('auth.signOut')}
-                </button>
-              </MenuDropdown>
-            </header>
+              <div className="doc-portal__command-bar">
+                <div className="doc-portal__command-bar-start">
+                  {currentPath ? (
+                    <button type="button" className="doc-portal__back-link" onClick={() => goBreadcrumb(breadcrumbParts.length - 2)}>
+                      <span className="doc-portal__back-link-icon" aria-hidden><IconArrowLeft size={16} /></span> {t('auth.back')}
+                    </button>
+                  ) : (
+                    <span className="doc-portal__command-spacer" aria-hidden />
+                  )}
+                </div>
+                <div className="doc-portal__command-bar-mid">
+                  {useCpanelDocs && accessToken && (
+                    <button
+                      type="button"
+                      className="btn btn--outline btn--sm doc-portal__cmd-trigger"
+                      onClick={() => setCommandPaletteOpen(true)}
+                      title={t('auth.portalCommandSearchHint')}
+                    >
+                      {t('auth.portalCommandSearchTitle')} <kbd className="doc-portal__kbd">Ctrl+K</kbd>
+                    </button>
+                  )}
+                  <div className="doc-portal__search">
+                    <span className="doc-portal__search-icon" aria-hidden><IconSearch size={16} /></span>
+                    <input
+                      type="search"
+                      className="doc-portal__search-input"
+                      placeholder={t('auth.portalSearchPlaceholder')}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="doc-portal__command-bar-end">
+                  <select
+                    className="doc-portal__select"
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                  >
+                    <option value="all">{t('auth.portalFilterAll')}</option>
+                    <option value="pdf">{t('auth.portalFilterPdf')}</option>
+                    <option value="image">{t('auth.portalFilterImage')}</option>
+                    <option value="document">{t('auth.portalFilterDocument')}</option>
+                    <option value="other">{t('auth.portalFilterOther')}</option>
+                  </select>
+                  {useCpanelDocs && (
+                    <>
+                      <select
+                        className="doc-portal__select"
+                        aria-label={t('auth.portalSortLabel')}
+                        value={fileSort.key}
+                        onChange={(e) => setFileSort((s) => ({ ...s, key: e.target.value }))}
+                      >
+                        <option value="date">{t('auth.portalSortDate')}</option>
+                        <option value="name">{t('auth.portalSortName')}</option>
+                        <option value="size">{t('auth.portalSortSize')}</option>
+                        <option value="type">{t('auth.portalSortType')}</option>
+                      </select>
+                      <select
+                        className="doc-portal__select"
+                        aria-label={t('auth.portalSortDirLabel')}
+                        value={fileSort.dir}
+                        onChange={(e) => setFileSort((s) => ({ ...s, dir: e.target.value }))}
+                      >
+                        <option value="desc">{t('auth.portalSortDesc')}</option>
+                        <option value="asc">{t('auth.portalSortAsc')}</option>
+                      </select>
+                    </>
+                  )}
+                  <MenuDropdown
+                    align="right"
+                    label={t('auth.portalNewMenuLabel')}
+                    trigger={
+                      <span className="doc-portal__new-btn">
+                        <span aria-hidden><IconAdd size={14} /></span> {t('auth.portalNewMenu')}
+                        <span className="doc-portal__user-caret" aria-hidden><IconChevronDown size={12} /></span>
+                      </span>
+                    }
+                  >
+                    <button type="button" className="doc-menu__item" role="menuitem" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      <span className="doc-menu__icon" aria-hidden><IconArrowUpload size={18} /></span> {t('auth.portalUploadSelect')}
+                    </button>
+                    <button type="button" className="doc-menu__item" role="menuitem" onClick={() => cameraInputRef.current?.click()} disabled={uploading}>
+                      <span className="doc-menu__icon" aria-hidden><IconCamera size={18} /></span> {t('auth.portalCapturePhoto')}
+                    </button>
+                    <button type="button" className="doc-menu__item" role="menuitem" onClick={() => setShowNewFolder(true)} disabled={uploading}>
+                      <span className="doc-menu__icon" aria-hidden><IconFolder size={18} /></span> {t('auth.portalNewFolder')}
+                    </button>
+                  </MenuDropdown>
+                </div>
+              </div>
+            </div>
 
             <input
               ref={fileInputRef}
@@ -1437,69 +1761,6 @@ export default function AreaReservada() {
               disabled={uploading}
               hidden
             />
-
-            <div className="doc-portal__actions">
-              <div className="doc-portal__actions-left">
-                {currentPath && (
-                  <button type="button" className="doc-portal__back-link" onClick={() => goBreadcrumb(breadcrumbParts.length - 2)}>
-                    <span aria-hidden>←</span> {t('auth.back')}
-                  </button>
-                )}
-              </div>
-              <div className="doc-portal__actions-right">
-                {useCpanelDocs && accessToken && (
-                  <button
-                    type="button"
-                    className="btn btn--outline btn--sm doc-portal__cmd-trigger"
-                    onClick={() => setCommandPaletteOpen(true)}
-                    title={t('auth.portalCommandSearchHint')}
-                  >
-                    {t('auth.portalCommandSearchTitle')} <kbd className="doc-portal__kbd">Ctrl+K</kbd>
-                  </button>
-                )}
-                <div className="doc-portal__search">
-                  <span className="doc-portal__search-icon" aria-hidden>🔍</span>
-                  <input
-                    type="search"
-                    className="doc-portal__search-input"
-                    placeholder={t('auth.portalSearchPlaceholder')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <select
-                  className="doc-portal__select"
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                >
-                  <option value="all">{t('auth.portalFilterAll')}</option>
-                  <option value="pdf">{t('auth.portalFilterPdf')}</option>
-                  <option value="image">{t('auth.portalFilterImage')}</option>
-                  <option value="document">{t('auth.portalFilterDocument')}</option>
-                  <option value="other">{t('auth.portalFilterOther')}</option>
-                </select>
-                <MenuDropdown
-                  align="right"
-                  label={t('auth.portalNewMenuLabel')}
-                  trigger={
-                    <span className="doc-portal__new-btn">
-                      <span aria-hidden>+</span> {t('auth.portalNewMenu')}
-                      <span className="doc-portal__user-caret" aria-hidden>▾</span>
-                    </span>
-                  }
-                >
-                  <button type="button" className="doc-menu__item" role="menuitem" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    <span className="doc-menu__icon" aria-hidden>📤</span> {t('auth.portalUploadSelect')}
-                  </button>
-                  <button type="button" className="doc-menu__item" role="menuitem" onClick={() => cameraInputRef.current?.click()} disabled={uploading}>
-                    <span className="doc-menu__icon" aria-hidden>📷</span> {t('auth.portalCapturePhoto')}
-                  </button>
-                  <button type="button" className="doc-menu__item" role="menuitem" onClick={() => setShowNewFolder(true)} disabled={uploading}>
-                    <span className="doc-menu__icon" aria-hidden>📁</span> {t('auth.portalNewFolder')}
-                  </button>
-                </MenuDropdown>
-              </div>
-            </div>
 
             {showNewFolder && (
               <div className="doc-portal__inline-form">
@@ -1527,6 +1788,34 @@ export default function AreaReservada() {
                 <p className="doc-portal__upload-meta-inline">
                   {t('auth.portalUploadSelectedCount', { count: selectedFiles.length })}
                 </p>
+                <p className="doc-portal__upload-queue-heading">
+                  {t(selectedFiles.length === 1 ? 'auth.portalUploadQueueOne' : 'auth.portalUploadQueueHeading')}
+                </p>
+                <ul className="doc-portal__upload-queue" role="list">
+                  {selectedFiles.map((file, idx) => (
+                    <li
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      className="doc-portal__upload-queue-item"
+                    >
+                      <span className="doc-portal__upload-queue-name" title={file.name}>
+                        {file.name}
+                      </span>
+                      <span className="doc-portal__upload-queue-size">{formatBytes(file.size)}</span>
+                      <button
+                        type="button"
+                        className="doc-portal__upload-queue-remove"
+                        onClick={() => removeSelectedFile(idx)}
+                        disabled={uploading}
+                        aria-label={t('auth.portalUploadRemoveFile')}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {selectedFiles.length > 1 ? (
+                  <p className="doc-portal__upload-batch-hint">{t('auth.portalUploadBatchHint')}</p>
+                ) : null}
                 {useCpanelDocs && insideTaxonomyUploadZone && (
                   <div className="doc-portal__upload-taxonomy-hint">
                     <label className="doc-portal__upload-doctype-label" htmlFor="upload-document-type">
@@ -1554,15 +1843,17 @@ export default function AreaReservada() {
                     ) : null}
                   </div>
                 )}
-                <div className="doc-portal__inline-form">
-                  <input
-                    type="text"
-                    className="doc-portal__input"
-                    placeholder={t('auth.portalUploadMetaTitlePlaceholder')}
-                    value={uploadMeta.title}
-                    onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))}
-                    disabled={uploading}
-                  />
+                <div className="doc-portal__inline-form doc-portal__upload-form">
+                  {selectedFiles.length === 1 ? (
+                    <input
+                      type="text"
+                      className="doc-portal__input"
+                      placeholder={t('auth.portalUploadMetaTitlePlaceholder')}
+                      value={uploadMeta.title}
+                      onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))}
+                      disabled={uploading}
+                    />
+                  ) : null}
                   <input
                     type="text"
                     className="doc-portal__input"
@@ -1624,7 +1915,7 @@ export default function AreaReservada() {
               {dragActive && (
                 <div className="doc-portal__drop-overlay" aria-hidden>
                   <div className="doc-portal__drop-overlay-inner">
-                    <span className="doc-portal__drop-overlay-icon">⬇</span>
+                    <span className="doc-portal__drop-overlay-icon" aria-hidden><IconArrowDownload size={40} /></span>
                     <strong>{t('auth.portalDropzoneTitle')}</strong>
                     <span className="doc-portal__drop-overlay-sub">
                       {t('auth.portalDropzoneSub', { folder: breadcrumbParts[breadcrumbParts.length - 1] || t('auth.portalRootLabel') })}
@@ -1668,15 +1959,15 @@ export default function AreaReservada() {
                   {useCpanelDocs && onedriveStatus?.configured && onedriveMountEntries.length > 0 && (
                     <div className="doc-portal__onedrive-mounts">
                       {!onedriveStatus.connected ? (
-                        <div className="doc-portal__status-bar doc-portal__status-bar--warn" role="status" aria-live="polite">
-                          <span className="doc-portal__status-icon" aria-hidden>☁️</span>
+                        <div className="doc-portal__status-bar doc-portal__status-bar--warn doc-portal__status-bar--compact" role="status" aria-live="polite">
+                          <span className="doc-portal__status-icon" aria-hidden><IconCloud size={22} /></span>
                           <div className="doc-portal__status-text">
                             <strong className="doc-portal__status-title">{t('auth.onedriveNotConnected')}</strong>
                             <span className="doc-portal__status-sub">{t('auth.onedriveIntroHint')}</span>
                           </div>
                           <div className="doc-portal__status-actions">
                             {isAdmin && (
-                              <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
+                              <button type="button" className="btn btn--primary btn--sm doc-portal__connect-btn" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
                                 {onedriveBusy ? t('auth.loading') : t('auth.onedriveConnect')}
                               </button>
                             )}
@@ -1684,60 +1975,67 @@ export default function AreaReservada() {
                         </div>
                       ) : (
                         <>
-                          <p className="doc-portal__onedrive-account">
+                          <p className="doc-portal__onedrive-account" title={onedriveStatus.userPrincipalName || onedriveStatus.displayName || ''}>
                             {t('auth.onedriveConnectedBadge', { user: onedriveStatus.userPrincipalName || onedriveStatus.displayName || '' })}
                           </p>
-                          {onedriveMountEntries.map(({ id, status: ms }) => (
-                            <div
-                              key={id}
-                              className="doc-portal__status-bar"
-                              role="status"
-                              aria-live="polite"
-                            >
-                              <span className="doc-portal__status-icon" aria-hidden>
-                                {ms.direction === 'pull' ? '☁️⬇' : ms.direction === 'push' ? '☁️⬆' : '☁️⇅'}
-                              </span>
-                              <div className="doc-portal__status-text">
-                                <strong className="doc-portal__status-title">
-                                  {id === 'comercial' ? t('auth.portalFolderComercial') : t('auth.portalFolderAssistencia')}
-                                  {' · '}
-                                  {ms.direction === 'pull'
-                                    ? t('auth.onedrivePanelTitlePull')
-                                    : ms.direction === 'push'
-                                      ? t('auth.onedrivePanelTitlePush')
-                                      : t('auth.onedrivePanelTitleBidi')}
-                                </strong>
-                                <span className="doc-portal__status-sub">
-                                  {ms.lastSyncAt
-                                    ? t('auth.onedriveLastSync', { at: formatDate(new Date(ms.lastSyncAt * 1000).toISOString(), locale) })
-                                    : t('auth.onedriveNeverSynced')}
-                                </span>
-                              </div>
-                              <div className="doc-portal__status-actions">
-                                {isAdmin && (
-                                  <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleOnedriveSync(id)} disabled={onedriveBusy}>
-                                    {onedriveBusy ? t('auth.loading') : t('auth.onedriveSyncNow')}
-                                  </button>
-                                )}
-                                {isAdmin && (
-                                  <MenuDropdown
-                                    align="right"
-                                    label={t('auth.onedriveMoreLabel')}
-                                    trigger={<span className="doc-portal__more" aria-hidden>⋯</span>}
-                                  >
-                                    <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
-                                      {t('auth.onedriveReconnect')}
-                                    </button>
-                                    {ms.direction !== 'push' && (
-                                      <button type="button" className="doc-menu__item doc-menu__item--danger" role="menuitem" onClick={() => void handleOnedriveResetLocal(id)} disabled={onedriveBusy}>
-                                        {t('auth.onedriveResetLocal')}
+                          <div className="doc-portal__sync-strip" role="list">
+                            {onedriveMountEntries.map(({ id, status: ms }) => {
+                              const directionLabel =
+                                ms.direction === 'pull'
+                                  ? t('auth.onedrivePanelTitlePull')
+                                  : ms.direction === 'push'
+                                    ? t('auth.onedrivePanelTitlePush')
+                                    : t('auth.onedrivePanelTitleBidi')
+                              const mountLabel = id === 'comercial' ? t('auth.portalFolderComercial') : t('auth.portalFolderAssistencia')
+                              const syncLine = ms.lastSyncAt
+                                ? t('auth.onedriveLastSync', { at: formatDate(new Date(ms.lastSyncAt * 1000).toISOString(), locale) })
+                                : t('auth.onedriveNeverSynced')
+                              const summaryTitle = `${mountLabel} · ${directionLabel}`
+                              return (
+                                <div key={id} className="doc-portal__sync-tile" role="listitem">
+                                  <div className="doc-portal__sync-tile-main" title={`${summaryTitle}\n${syncLine}`}>
+                                    <span className="doc-portal__sync-tile-icon" aria-hidden>
+                                      {ms.direction === 'pull' ? <IconCloudArrowDown size={20} /> : ms.direction === 'push' ? <IconCloudArrowUp size={20} /> : <IconArrowSync size={20} />}
+                                    </span>
+                                    <div className="doc-portal__sync-tile-text">
+                                      <span className="doc-portal__sync-tile-label">{mountLabel}</span>
+                                      <span className="doc-portal__sync-tile-sub">{syncLine}</span>
+                                    </div>
+                                  </div>
+                                  {isAdmin ? (
+                                    <div className="doc-portal__sync-tile-actions">
+                                      <button
+                                        type="button"
+                                        className="doc-portal__icon-btn doc-portal__icon-btn--sync"
+                                        onClick={() => void handleOnedriveSync(id)}
+                                        disabled={onedriveBusy}
+                                        title={`${t('auth.onedriveSyncNow')} — ${summaryTitle}`}
+                                      >
+                                        <span className="visually-hidden">
+                                          {onedriveBusy ? t('auth.loading') : `${t('auth.onedriveSyncNow')}: ${summaryTitle}`}
+                                        </span>
+                                        <span aria-hidden><IconArrowSync size={20} /></span>
                                       </button>
-                                    )}
-                                  </MenuDropdown>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                                      <MenuDropdown
+                                        align="right"
+                                        label={t('auth.onedriveMoreLabel')}
+                                        trigger={<span className="doc-portal__icon-btn doc-portal__icon-btn--more" aria-hidden><IconMoreHorizontal size={20} /></span>}
+                                      >
+                                        <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void handleOnedriveConnect()} disabled={onedriveBusy}>
+                                          {t('auth.onedriveReconnect')}
+                                        </button>
+                                        {ms.direction !== 'push' && (
+                                          <button type="button" className="doc-menu__item doc-menu__item--danger" role="menuitem" onClick={() => void handleOnedriveResetLocal(id)} disabled={onedriveBusy}>
+                                            {t('auth.onedriveResetLocal')}
+                                          </button>
+                                        )}
+                                      </MenuDropdown>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </>
                       )}
                     </div>
@@ -1801,6 +2099,31 @@ export default function AreaReservada() {
                     </p>
                   )}
 
+                  {useCpanelDocs && recentDocuments.length > 0 && (
+                    <section className="doc-portal__section" aria-labelledby="portal-recent-heading">
+                      <h2 id="portal-recent-heading" className="doc-portal__section-title">
+                        {t('auth.portalRecentHeading')}
+                      </h2>
+                      <ul className="doc-portal__recent-list">
+                        {recentDocuments.map((row) => (
+                          <li key={row.path}>
+                            <button
+                              type="button"
+                              className="doc-portal__recent-link"
+                              onClick={() => {
+                                const dir = String(row.path || '').split('/').slice(0, -1).join('/')
+                                if (dir) setCurrentPath(dir)
+                              }}
+                            >
+                              <span className="doc-portal__recent-name">{row.name || row.path}</span>
+                              <span className="doc-portal__recent-sub">{formatDate(row.updatedAt, locale)}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
                   <section className="doc-portal__section" aria-labelledby="portal-folders-heading">
                     <h2 id="portal-folders-heading" className="doc-portal__section-title">
                       {t('auth.portalFoldersHeading')}
@@ -1808,7 +2131,7 @@ export default function AreaReservada() {
                     {filteredFolders.length === 0 ? (
                       normalizedSearch ? (
                         <div className="doc-empty" role="status">
-                          <span className="doc-empty__icon" aria-hidden>🔎</span>
+                          <span className="doc-empty__icon" aria-hidden><IconSearch size={40} /></span>
                           <h3 className="doc-empty__title">{t('auth.portalNoResults')}</h3>
                           <p className="doc-empty__desc">{t('auth.portalNoResultsDesc', { q: searchTerm })}</p>
                           <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => setSearchTerm('')}>
@@ -1817,7 +2140,7 @@ export default function AreaReservada() {
                         </div>
                       ) : (
                         <div className="doc-empty">
-                          <span className="doc-empty__icon" aria-hidden>📁</span>
+                          <span className="doc-empty__icon" aria-hidden><IconFolder size={40} /></span>
                           <h3 className="doc-empty__title">{t('auth.portalEmptyFoldersTitle')}</h3>
                           <p className="doc-empty__desc">{t('auth.portalEmptyFoldersDesc')}</p>
                           <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => setShowNewFolder(true)} disabled={uploading}>
@@ -1835,7 +2158,6 @@ export default function AreaReservada() {
                           const atDir = onedriveStatus?.mounts?.at?.direction
                           const rootDirection = isComercialRoot ? comercialDir : isAtRoot ? atDir : null
                           const hideDeleteHere = isInsidePullMount || isMountRoot
-                          const icon = isComercialRoot ? '☁️' : isAtRoot ? '🔧' : '📁'
                           const badge = rootDirection === 'pull'
                             ? t('auth.onedriveBadgePull')
                             : rootDirection === 'push'
@@ -1845,12 +2167,16 @@ export default function AreaReservada() {
                                 : ''
                           return (
                             <li key={folder.name} className="doc-folder-card">
-                              <button type="button" className="doc-folder-card__main" onClick={() => navigateToFolder(folder.name)}>
-                                <span className="doc-folder-card__icon" aria-hidden>{icon}</span>
-                                <span className="doc-folder-card__name">{folderDisplayName(folder.name)}</span>
-                                {badge && (
-                                  <span className="doc-folder-card__badge" aria-hidden>{badge}</span>
-                                )}
+                              <button type="button" className="doc-folder-card__main" onClick={() => navigateToFolder(folder.name)} title={t('auth.portalOpenFolder')}>
+                                <span className="doc-folder-card__icon" aria-hidden>
+                                  {isComercialRoot ? <IconCloud size={28} /> : isAtRoot ? <IconWrenchScrewdriver size={28} /> : <IconFolder size={28} />}
+                                </span>
+                                <span className="doc-folder-card__title-line">
+                                  <span className="doc-folder-card__name">{folderDisplayName(folder.name)}</span>
+                                  {badge ? (
+                                    <span className="doc-folder-card__badge" aria-hidden>{badge}</span>
+                                  ) : null}
+                                </span>
                                 <span className="doc-folder-card__hint">{t('auth.portalOpenFolder')}</span>
                               </button>
                               {isAdmin && !hideDeleteHere && (
@@ -1871,13 +2197,39 @@ export default function AreaReservada() {
                   </section>
 
                   <section className="doc-portal__section" aria-labelledby="portal-files-heading">
-                    <h2 id="portal-files-heading" className="doc-portal__section-title">
-                      {t('auth.portalFilesHeading')}
-                    </h2>
-                    {enrichedFiles.length === 0 ? (
+                    <div className="doc-portal__section-head">
+                      <h2 id="portal-files-heading" className="doc-portal__section-title">
+                        {t('auth.portalFilesHeading')}
+                      </h2>
+                      {useCpanelDocs && isAdmin && !isInsidePullMount && sortedEnrichedFiles.length > 0 && (
+                        <div className="doc-portal__batch-bar">
+                          <button
+                            type="button"
+                            className="btn btn--outline btn--sm doc-portal__btn-on-light"
+                            onClick={() => {
+                              const all = sortedEnrichedFiles.map((x) => x.fullPath)
+                              setSelectedForDelete((prev) => (prev.length === all.length ? [] : all))
+                            }}
+                          >
+                            {t('auth.portalSelectToggleAll')}
+                          </button>
+                          {selectedForDelete.length > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn--outline btn--sm doc-file-row__danger"
+                              onClick={() => void handleBatchDelete()}
+                              disabled={uploading}
+                            >
+                              {t('auth.portalBatchDelete', { count: selectedForDelete.length })}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {sortedEnrichedFiles.length === 0 ? (
                       (normalizedSearch || typeFilter !== 'all') ? (
                         <div className="doc-empty" role="status">
-                          <span className="doc-empty__icon" aria-hidden>🔎</span>
+                          <span className="doc-empty__icon" aria-hidden><IconSearch size={40} /></span>
                           <h3 className="doc-empty__title">{t('auth.portalNoResults')}</h3>
                           <p className="doc-empty__desc">{t('auth.portalNoResultsFilesDesc')}</p>
                           <div className="doc-empty__actions">
@@ -1895,23 +2247,37 @@ export default function AreaReservada() {
                         </div>
                       ) : (
                         <div className="doc-empty">
-                          <span className="doc-empty__icon" aria-hidden>📂</span>
+                          <span className="doc-empty__icon" aria-hidden><IconFolderOpen size={40} /></span>
                           <h3 className="doc-empty__title">{t('auth.portalEmptyFilesTitle')}</h3>
                           <p className="doc-empty__desc">{t('auth.portalEmptyFilesDesc')}</p>
                           <div className="doc-empty__actions">
                             <button type="button" className="btn btn--primary btn--sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                              <span aria-hidden>📤</span> {t('auth.portalUploadSelect')}
+                              <span className="doc-portal__btn-fluent-icon" aria-hidden><IconArrowUpload size={18} /></span> {t('auth.portalUploadSelect')}
                             </button>
                             <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => cameraInputRef.current?.click()} disabled={uploading}>
-                              <span aria-hidden>📷</span> {t('auth.portalCapturePhoto')}
+                              <span className="doc-portal__btn-fluent-icon" aria-hidden><IconCamera size={18} /></span> {t('auth.portalCapturePhoto')}
                             </button>
                           </div>
                         </div>
                       )
                     ) : (
                       <ul className="doc-portal__file-list">
-                        {enrichedFiles.map((f) => (
+                        {sortedEnrichedFiles.map((f) => (
                           <li key={f.fullPath} className="doc-file-row">
+                            {useCpanelDocs && isAdmin && !isInsidePullMount && (
+                              <label className="doc-file-row__check">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedForDelete.includes(f.fullPath)}
+                                  onChange={() => {
+                                    setSelectedForDelete((prev) => (
+                                      prev.includes(f.fullPath) ? prev.filter((p) => p !== f.fullPath) : [...prev, f.fullPath]
+                                    ))
+                                  }}
+                                  aria-label={t('auth.portalSelectFile', { name: f.name })}
+                                />
+                              </label>
+                            )}
                             <FileThumbnail fullPath={f.fullPath} fileType={f.fileType} fileName={f.name} token={accessToken} />
                             <div className="doc-file-row__meta">
                               <span className="doc-file-row__name">{f.name}</span>
@@ -1920,40 +2286,64 @@ export default function AreaReservada() {
                               ) : null}
                               <span className="doc-file-row__sub">{f.sizeLabel} · {f.dateLabel}</span>
                             </div>
-                            <div className="doc-file-row__actions">
+                            <div className="doc-file-row__actions doc-file-row__actions--modern">
                               <span className="doc-file-row__version">{t('auth.portalVersionBadge', { count: f.versionCount })}</span>
-                              {useCpanelDocs && (f.fileType === 'pdf' || f.fileType === 'image') && (
-                                <button
-                                  type="button"
-                                  className="btn btn--outline btn--sm doc-portal__btn-on-light"
-                                  onClick={() => void handlePreview(f.name)}
-                                >
-                                  {t('auth.portalPreview')}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="btn btn--outline btn--sm doc-portal__btn-on-light"
-                                onClick={() => setOpenHistoryPath((prev) => (prev === f.fullPath ? null : f.fullPath))}
-                              >
-                                {t('auth.portalHistoryAction')}
-                              </button>
-                              <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => void handleDownload(f.name)}>
+                              <button type="button" className="btn btn--primary btn--sm doc-file-row__download" onClick={() => void handleDownload(f.name)}>
                                 {t('auth.download')}
                               </button>
-                              {isAdmin && !isInsidePullMount && (
-                                <button type="button" className="btn btn--outline btn--sm doc-file-row__danger" onClick={() => void handleDeleteFile(f.name)} disabled={uploading}>
-                                  {t('auth.portalDelete')}
+                              <MenuDropdown
+                                align="right"
+                                label={t('auth.portalFileMenuLabel', { name: f.name })}
+                                trigger={<span className="doc-file-row__more" aria-hidden><IconMoreHorizontal size={18} /></span>}
+                              >
+                                {useCpanelDocs && (f.fileType === 'pdf' || f.fileType === 'image') ? (
+                                  <button type="button" className="doc-menu__item" role="menuitem" onClick={() => void handlePreview(f.name)}>
+                                    {t('auth.portalPreview')}
+                                  </button>
+                                ) : null}
+                                {useCpanelDocs && !isInsidePullMount ? (
+                                  <button
+                                    type="button"
+                                    className="doc-menu__item"
+                                    role="menuitem"
+                                    onClick={() => setMetaModal({
+                                      fullPath: f.fullPath,
+                                      name: f.name,
+                                      documentType: f.documentType || 'OUTROS',
+                                      versionLabel: f.metadata?.versionLabel || '',
+                                      notes: f.metadata?.notes || '',
+                                    })}
+                                  >
+                                    {t('auth.portalEditMetadata')}
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="doc-menu__item"
+                                  role="menuitem"
+                                  onClick={() => setOpenHistoryPath((prev) => (prev === f.fullPath ? null : f.fullPath))}
+                                >
+                                  {t('auth.portalHistoryAction')}
                                 </button>
-                              )}
+                                {isAdmin && !isInsidePullMount ? (
+                                  <button type="button" className="doc-menu__item doc-menu__item--danger" role="menuitem" onClick={() => void handleDeleteFile(f.name)} disabled={uploading}>
+                                    {t('auth.portalDelete')}
+                                  </button>
+                                ) : null}
+                              </MenuDropdown>
                             </div>
                             {openHistoryPath === f.fullPath && (
                               <div className="doc-file-row__history">
+                                {useCpanelDocs && (
+                                  <p className="doc-file-row__history-current">
+                                    {t('auth.portalHistoryCurrent', { n: f.versionCount, date: f.dateLabel })}
+                                  </p>
+                                )}
                                 {f.history.length === 0 ? (
                                   <p className="doc-file-row__history-empty">{t('auth.portalHistoryEmpty')}</p>
                                 ) : (
                                   <ul className="doc-file-row__history-list">
-                                    {f.history.slice().reverse().map((h, idx) => (
+                                    {f.history.map((h, idx) => (
                                       <li key={`${h.at}-${idx}`}>
                                         {formatDate(h.at, locale)} · {h.by || '—'} · {h.metadata?.title || f.name}
                                       </li>
@@ -1970,9 +2360,16 @@ export default function AreaReservada() {
 
                   {isAdmin && (
                     <section className="doc-portal__section" aria-labelledby="portal-audit-heading">
-                      <h2 id="portal-audit-heading" className="doc-portal__section-title">
-                        {t('auth.portalAuditHeading')}
-                      </h2>
+                      <div className="doc-portal__section-head">
+                        <h2 id="portal-audit-heading" className="doc-portal__section-title">
+                          {t('auth.portalAuditHeading')}
+                        </h2>
+                        {useCpanelDocs && accessToken && (
+                          <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => void refreshServerAudit()}>
+                            {t('auth.portalAuditRefresh')}
+                          </button>
+                        )}
+                      </div>
                       {auditLog.length === 0 ? (
                         <p className="doc-portal__empty">{t('auth.portalAuditEmpty')}</p>
                       ) : (
@@ -2013,6 +2410,55 @@ export default function AreaReservada() {
         fileType={preview.fileType}
         onClose={closePreview}
       />
+
+      {metaModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="meta-modal-title" onClick={() => !metaSaving && setMetaModal(null)}>
+          <div className="modal doc-portal__meta-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 id="meta-modal-title" className="doc-portal__meta-modal-title">{t('auth.portalEditMetadata')}</h3>
+            <p className="text-muted doc-portal__meta-file">{metaModal.name}</p>
+            <label className="doc-portal__meta-label">
+              {t('auth.portalMetadataType')}
+              <select
+                className="doc-portal__input"
+                value={metaModal.documentType}
+                onChange={(e) => setMetaModal((m) => (m ? { ...m, documentType: e.target.value } : m))}
+                disabled={metaSaving}
+              >
+                {DOCUMENT_TYPES.map((dt) => (
+                  <option key={dt} value={dt}>{t(`auth.documentType.${dt}`, { defaultValue: dt })}</option>
+                ))}
+              </select>
+            </label>
+            <label className="doc-portal__meta-label">
+              {t('auth.portalMetadataVersionLabel')}
+              <input
+                className="doc-portal__input"
+                value={metaModal.versionLabel}
+                onChange={(e) => setMetaModal((m) => (m ? { ...m, versionLabel: e.target.value } : m))}
+                disabled={metaSaving}
+              />
+            </label>
+            <label className="doc-portal__meta-label">
+              {t('auth.portalMetadataNotes')}
+              <textarea
+                className="doc-portal__input doc-portal__meta-textarea"
+                rows={3}
+                value={metaModal.notes}
+                onChange={(e) => setMetaModal((m) => (m ? { ...m, notes: e.target.value } : m))}
+                disabled={metaSaving}
+              />
+            </label>
+            <div className="doc-portal__meta-actions">
+              <button type="button" className="btn btn--primary btn--sm" onClick={() => void handleSaveMetadata()} disabled={metaSaving}>
+                {metaSaving ? '…' : t('auth.portalMetadataSave')}
+              </button>
+              <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={() => setMetaModal(null)} disabled={metaSaving}>
+                {t('auth.portalCancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

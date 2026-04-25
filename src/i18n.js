@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import pt from './locales/pt.json'
 import { hasCookieConsent } from './utils/consent'
+import { readLangParamFromSearch } from './utils/langUrl'
 
 const LANG_KEY = 'navel-lang'
 const SUPPORTED = ['pt', 'en', 'es']
@@ -20,6 +21,8 @@ export function normalizeLanguage(lng) {
 }
 
 function getInitialLanguage() {
+  const fromUrl = typeof window !== 'undefined' ? readLangParamFromSearch() : null
+  if (fromUrl) return fromUrl
   if (hasCookieConsent()) {
     const saved = localStorage.getItem(LANG_KEY)
     if (saved) {

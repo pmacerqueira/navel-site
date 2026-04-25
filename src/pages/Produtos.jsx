@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { CATEGORY_KEYS, CATEGORY_IDS, BRANDS_BY_CATEGORY, BRAND_URLS } from '../constants'
 import ScrollReveal from '../components/ScrollReveal'
+import { assetUrl } from '../utils/assetUrl'
 
 function BrandTag({ brand, opensNewWindow }) {
   const url = BRAND_URLS[brand]
@@ -24,6 +25,35 @@ export default function Produtos() {
         <div className="container">
           <h1>{t('products.title')}</h1>
           <p className="text-muted page-hero__lead">{t('products.lead')}</p>
+        </div>
+      </section>
+
+      <section className="section products-istobal-highlight" aria-labelledby="products-istobal-title">
+        <div className="container">
+          <ScrollReveal>
+            <div className="card products-istobal-card">
+              <div className="products-istobal-card__logo-wrap">
+                <img
+                  src={assetUrl('/images/brands/istobal.png')}
+                  alt=""
+                  width={160}
+                  height={64}
+                  loading="lazy"
+                  decoding="async"
+                  className="products-istobal-card__logo"
+                />
+              </div>
+              <div className="products-istobal-card__body">
+                <h2 id="products-istobal-title" className="products-istobal-card__title">
+                  {t('products.istobalHighlightTitle')}
+                </h2>
+                <p className="text-muted products-istobal-card__text">{t('products.istobalHighlightText')}</p>
+                <Link to="/istobal" className="btn btn--primary">
+                  {t('products.istobalHighlightCta')}
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

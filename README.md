@@ -18,11 +18,11 @@ Site institucional da **José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.** — m
 | `npm run preview` | Pré-visualizar o build |
 | **`OPTIMIZAR.bat`** | Pipeline completo: thumbnails, otimizar imagens, build, ZIP para cPanel (fallback legado) |
 
-### Deploy automático para cPanel (FTPS) — desde `0.2.5`
+### Deploy automático para cPanel (SFTP ou FTPS)
 
 | Comando | Uso |
 |--------|-----|
-| `npm run deploy:probe` | Testa conectividade FTPS/SFTP/UAPI com as credenciais em `.env.cpanel` |
+| `npm run deploy:probe` | Testa FTPS/SFTP/UAPI com `.env.cpanel` (navel.pt: SFTP porta **11022** — ver `docs/HOSTING-CIBERCONCEITO-NAVEL.md`) |
 | `npm run deploy:dry` | Mostra o que seria enviado (nada é escrito) |
 | `npm run deploy:php -- --yes` | Envia `public/*.php` para o cPanel |
 | `npm run deploy:site -- --yes` | Envia `dist/` (sem catálogos) para o cPanel |
@@ -39,7 +39,7 @@ Rotas com URL limpa: `/sobre`, `/produtos`, `/marcas`, `/contacto`, etc. (Browse
 
 **Caminho primário (automatizado):**
 
-1. Uma vez: seguir setup em `docs/DEPLOY-AUTOMATICO-CPANEL.md` (criar conta FTP dedicada + `.env.cpanel`)
+1. Uma vez: `docs/DEPLOY-AUTOMATICO-CPANEL.md` — `.env.cpanel` (SFTP recomendado em navel.pt ou FTPS com `deploy@`)
 2. Editar o código / fazer `npm run build`
 3. `npm run deploy:dry` (ver o plano) → `npm run deploy:all -- --yes` (enviar)
 
@@ -55,7 +55,7 @@ Rotas com URL limpa: `/sobre`, `/produtos`, `/marcas`, `/contacto`, etc. (Browse
 ## Onde editar
 
 - **Marcas:** `src/data/brands.js` (BRAND_DEFINITIONS, BRANDS_BY_CATEGORY_IDS) + logos em `public/images/brands/`
-- **Textos / idiomas:** `src/locales/pt.json`, `en.json`, `es.json` — em cada **`npm run build`** corre automaticamente `merge-locales` (injeta `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` nas chaves `privacy` e `rgpd`). Para editar a política de privacidade longa, use os ficheiros em **`scripts/privacy-locale-{pt,en,es}.json`** (não só o excerto em `src/locales`).
+- **Textos / idiomas:** `src/locales/pt.json`, `en.json`, `es.json` — em cada **`npm run build`** corre `merge-locales`: privacy → rgpd → patch PT (`scripts/pt-ui-patch-data.mjs`) → **`scripts/merge-istobal-i18n.mjs`** (marca ISTOBAL: `istobal.*`, `home.istobal*`, `products.istobal*`, `nav.istobal`, `hero.slideIstobal`, linha em `services.area3Items`). Política longa: `scripts/privacy-locale-{pt,en,es}.json`; copy PT geral: **`scripts/pt-ui-patch-data.mjs`**; textos ISTOBAL: edite o objecto **`PACK`** em **`scripts/merge-istobal-i18n.mjs`**.
 - **SEO:** `index.html` (fallback) + `src/components/PageTitle.jsx` (react-helmet-async) + `src/locales/*.json` (`seo.homeDescription`, `seo.notFoundDescription` e `lead` das páginas)
 
 Imagens: ver `public/images/README.md`.
@@ -81,7 +81,8 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 - `docs/ARQUITETURA.md` — decisões técnicas e limites de projeto.
 - `CHANGELOG.md` — histórico de mudanças e decisões.
 - `DEPLOY.md` — processo de publicação.
-- `docs/DEPLOY-AUTOMATICO-CPANEL.md` — upload automático FTPS/SFTP/UAPI.
+- `docs/DEPLOY-AUTOMATICO-CPANEL.md` — deploy SFTP/FTPS/UAPI.
+- `docs/HOSTING-CIBERCONCEITO-NAVEL.md` — porta SSH **11022**, limites FTP.
 
 ### Operação
 - `docs/CATALOGOS-BOLAS-BETA-TELWIN.md` — actualizar cartões Beta (Bolas) e Telwin
@@ -94,7 +95,7 @@ Push após alterações significativas ou antes de publicar. Usar mensagens clar
 
 Área reservada (Supabase): `docs/SUPABASE.md`. Live chat (Tawk.to): `docs/TAWKTO-CHATBOT.md`.
 
-> Nota de arquitetura: `navel-site` usa Supabase na área reservada; o projeto `AT_Manut` usa MySQL+PHP/cPanel como fonte de verdade. Não misturar decisões entre projetos.
+> Nota de arquitetura: `navel-site` usa Supabase na área reservada; o projeto `AT_Manut` usa MySQL+PHP/cPanel como fonte de verdade. Não misturar decisões entre projetos. Em **produção**, ambos publicam na **mesma conta cPanel** (`public_html/`: site na raiz; `manut/` e `api/` do AT_Manut). Ver `DEPLOY.md` e `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
 >
 > Nota de continuidade entre agentes: não existe memória global automática entre todos os chats/modelos; a continuidade é mantida no repositório (código + regras + changelog + documentação).
 

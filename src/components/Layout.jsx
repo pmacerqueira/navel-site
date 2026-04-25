@@ -8,6 +8,7 @@ import WhatsAppButton from './WhatsAppButton'
 import NavelDashboardButton from './NavelDashboardButton'
 import TawkWidget from './TawkWidget'
 import PageTitle from './PageTitle'
+import LangQuerySync from './LangQuerySync'
 
 export default function Layout({ children }) {
   const { t } = useTranslation()
@@ -16,6 +17,7 @@ export default function Layout({ children }) {
 
   return (
     <>
+      <LangQuerySync />
       <PageTitle />
       <CookieConsent />
       <NavelDashboardButton />

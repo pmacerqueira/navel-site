@@ -1,12 +1,18 @@
 /**
  * SEO e título do documento por rota: title, meta description, canonical,
- * Open Graph, Twitter Card e robots (noindex em área reservada).
+ * hreflang (?lng=), Open Graph (og:locale), Twitter Card, BreadcrumbList JSON-LD,
+ * robots (noindex em área reservada).
  */
 import { Helmet } from 'react-helmet-async'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  absoluteUrlForLang,
+  CANONICAL_ORIGIN,
+  OG_LOCALE_BY_LANG,
+  normalizeLangCode,
+} from '../utils/langUrl'
 
-const CANONICAL_ORIGIN = 'https://navel.pt'
 const OG_IMAGE = `${CANONICAL_ORIGIN}/images/og-image.png`
 const LEGAL_NAME = 'José Gonçalves Cerqueira (NAVEL-AÇORES), Lda.'
 const HOME_TITLE = `${LEGAL_NAME} | Máquinas, Ferramentas e Acessórios Industriais | Ponta Delgada`
@@ -19,6 +25,7 @@ const ROUTE_CONFIG = {
   '/produtos': { titleKey: 'products.title', descriptionKey: 'products.lead' },
   '/marcas': { titleKey: 'brands.title', descriptionKey: 'brands.lead' },
   '/milwaukee': { titleKey: 'milwaukee.title', descriptionKey: 'milwaukee.lead' },
+  '/istobal': { titleKey: 'istobal.title', descriptionKey: 'istobal.lead' },
   '/servicos': { titleKey: 'services.title', descriptionKey: 'services.lead' },
   '/catalogos': { titleKey: 'catalogs.title', descriptionKey: 'catalogs.lead' },
   '/contacto': { titleKey: 'contact.title', descriptionKey: 'contact.lead' },
@@ -32,19 +39,44 @@ const ROUTE_CONFIG = {
   '/aguardar-aprovacao': { titleKey: 'auth.pendingTitle', descriptionKey: 'auth.pendingText' },
 }
 
-const NOINDEX_ROUTES = new Set(['/login', '/registar', '/area-reservada', '/admin', '/aguardar-aprovacao'])
+const NOINDEX_ROUTES = new Set([
+  '/login',
+  '/registar',
+  '/area-reservada',
+  '/admin',
+  '/aguardar-aprovacao',
+])
 
-function canonicalHref(pathname) {
-  if (!pathname || pathname === '/') return `${CANONICAL_ORIGIN}/`
-  return `${CANONICAL_ORIGIN}${pathname.split('?')[0]}`
+function breadcrumbJsonLd(pathname, config, t, lang) {
+  if (!config || config.titleMode === 'home' || !config.titleKey) return null
+  const n = normalizeLangCode(lang)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: t('nav.home'),
+        item: absoluteUrlForLang('/', n),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: t(config.titleKey),
+        item: absoluteUrlForLang(pathname, n),
+      },
+    ],
+  }
 }
 
 export default function PageTitle() {
   const { pathname } = useLocation()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const path = pathname || '/'
   const config = ROUTE_CONFIG[path]
   const isNoIndex = NOINDEX_ROUTES.has(path)
+  const lang = normalizeLangCode(i18n.language)
 
   const fullTitle = config
     ? config.titleMode === 'home'
@@ -54,7 +86,19 @@ export default function PageTitle() {
 
   const description = config ? t(config.descriptionKey) : t('seo.notFoundDescription')
   const robotsContent = isNoIndex ? 'noindex, nofollow' : 'index, follow'
-  const canonical = canonicalHref(path)
+  const canonical = absoluteUrlForLang(path, lang)
+
+  const hrefPt = absoluteUrlForLang(path, 'pt')
+  const hrefEn = absoluteUrlForLang(path, 'en')
+  const hrefEs = absoluteUrlForLang(path, 'es')
+  const hrefXDefault = hrefPt
+
+  const ogLocale = OG_LOCALE_BY_LANG[lang] || OG_LOCALE_BY_LANG.pt
+  const ogLocaleAlternates = Object.entries(OG_LOCALE_BY_LANG)
+    .filter(([code]) => code !== lang)
+    .map(([, loc]) => loc)
+
+  const crumbs = !isNoIndex ? breadcrumbJsonLd(path, config, t, lang) : null
 
   return (
     <Helmet prioritizeSeoTags>
@@ -62,8 +106,20 @@ export default function PageTitle() {
       <meta name="description" content={description} />
       <meta name="robots" content={robotsContent} />
       <link rel="canonical" href={canonical} />
+      {!isNoIndex && (
+        <>
+          <link rel="alternate" hrefLang="pt" href={hrefPt} />
+          <link rel="alternate" hrefLang="en" href={hrefEn} />
+          <link rel="alternate" hrefLang="es" href={hrefEs} />
+          <link rel="alternate" hrefLang="x-default" href={hrefXDefault} />
+        </>
+      )}
       <meta property="og:type" content="website" />
       <meta property="og:url" content={canonical} />
+      <meta property="og:locale" content={ogLocale} />
+      {ogLocaleAlternates.map((loc) => (
+        <meta key={loc} property="og:locale:alternate" content={loc} />
+      ))}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={OG_IMAGE} />
@@ -82,6 +138,9 @@ export default function PageTitle() {
         name="twitter:image:alt"
         content={`${LEGAL_NAME} | Máquinas, ferramentas e equipamentos industriais | Ponta Delgada`}
       />
+      {crumbs && (
+        <script type="application/ld+json">{JSON.stringify(crumbs)}</script>
+      )}
     </Helmet>
   )
 }

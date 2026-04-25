@@ -1,6 +1,6 @@
 # Roadmap — "Sharepoint" NAVEL (Área Reservada ↔ AT_Manut)
 
-Estado do projeto em **2026-04-17** (actualizado com portal: pesquisa, Fase B UI, pré-visualização).
+Estado do projeto em **2026-04-17** (actualizado: portal pesquisa/Fase B/pré-visualização; **site público i18n PT** via `pt-ui-patch`; deploy `0.2.7`).
 
 Este documento regista o roadmap em curso para a biblioteca de documentos partilhada entre a **Área Reservada** (`navel-site`, `https://navel.pt/area-reservada`) e o **AT_Manut** (`https://navel.pt/manut/`). Complementa (não substitui) [`INTEGRACAO-BIBLIOTECA-AT-MANUT.md`](./INTEGRACAO-BIBLIOTECA-AT-MANUT.md).
 
@@ -20,6 +20,7 @@ Consolidação pós-Fase G, alinhada a operações reais e a boas práticas Micr
 | **UI — performance** | `loadTaxonomy` / `loadOnedriveStatus` em efeitos separados (menos refetch); `folderDisplayName` com **Map** O(1); `FileThumbnail` com `memo`; regras AT taxonomia (`atSkipsTaxonomySync` vs `atHidesTaxonomyVirtualFolders`) clarificadas. |
 | **Cliente API** | `cpanelSearch`, `cpanelSetMetadata`, upload com `extraFields`; listagem com metadata; download com `inline`. |
 | **Produto** | Remoção da página `Novidades` (rota continua a redireccionar para `/catalogos`). |
+| **Site público (i18n)** | `scripts/pt-ui-patch-data.mjs` + `apply-pt-ui-patch.mjs` integrados em `npm run merge-locales` — o copy PT (home, rodapé, contacto, catálogos, hero, CGVS *chrome*, pesquisa, cookies) deixa de depender de `pt.json` “igual ao EN”. Fonte canónica para PT não-legal: o ficheiro de patch; `privacy`/`rgpd` continuam nos `scripts/*-locale-*.json`. |
 
 **Build / deploy:** **primário** `npm run build` → `npm run deploy:all -- --yes` (FTPS incremental, ver [`DEPLOY-AUTOMATICO-CPANEL.md`](./DEPLOY-AUTOMATICO-CPANEL.md)). **Fallback manual:** `npm run make-zip` → upload de `navel-publicar.zip` no File Manager. Checklist operacional: [`DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md`](./DEPLOY-AREA-RESERVADA-E-ONEDRIVE.md).
 
@@ -101,23 +102,20 @@ Entregue e validado em produção a 2026-04-16.
 
 ---
 
-## Próxima fase operativa sugerida — **C** (AT_Manut)
+## Próxima fase operativa sugerida — **D** (pesquisa cruzada + notificações)
 
-Documentação e código do portal estão prontos para avançar para a **Fase C** (ligação documentos ↔ máquinas no AT_Manut), conforme secção seguinte.
+A **Fase C** (biblioteca no AT_Manut com proxy + UI) está implementada no repositório AT_Manut; falta apenas **publicar** no cPanel (`public_html/api/*.php` + bundle `manut/` após `npm run build:zip`) com `ATM_NAVEL_DOC_INTEGRATION_TOKEN` alinhado a `at_integration_bearer`. A secção seguinte mantém os critérios de aceitação para validação em produção.
 
 ---
 
-## Fase C — Associar documentos a máquinas (AT_Manut)
+## Fase C — Associar documentos a máquinas (AT_Manut) — **código entregue**
 
 **Objectivo:** dentro do AT_Manut, ao abrir a ficha de uma máquina, o técnico/admin pode **linkar** documentos já existentes na Área Reservada (ou fazer upload novo) e ver a lista de documentos associados.
 
 ### Entregas
 
-- [ ] Novo endpoint no AT_Manut: `api/data.php` ganha recurso `documentosBiblioteca` (read-only) que consulta `documentos-api.php/search` com o token técnico adequado — **ver `docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md` §10 e exemplo de proxy**.
-- [ ] Componente React no AT_Manut (`src/pages/MaquinaDetalhe.jsx` ou equivalente) com novo separador "Biblioteca" que:
-  - Lista documentos já linkados à máquina (`GET action=search&machineId=...`).
-  - Botão "Linkar documento existente" → modal com search na biblioteca (por nome, tipo, taxonomia).
-  - Botão "Upload novo documento" → multipart para a subpasta `Assistencia Tecnica/<Categoria>/<Subcategoria>/` com campo opcional `linkMachineIds` (JSON array no mesmo pedido) ou `POST machine_links` a seguir.
+- [x] **AT_Manut — proxy em `api/data.php`:** recurso `documentosBiblioteca` (`search`, `machine_links_get`, `machine_links_set`, `upload_folder_for_maquina`) com validação de caminhos, `documentType`, existência de equipamentos em `machine_links_set`, e logging em falhas cURL — **ver `docs/INTEGRACAO-BIBLIOTECA-AT-MANUT.md` §10**.
+- [x] **AT_Manut — UI:** `MaquinaBibliotecaNavel.jsx` na ficha do equipamento em **Clientes** e no modal **Documentação** em **Equipamentos** — lista por `machineId`, pesquisa global, associar existente, upload com `linkMachineIds`, abrir PDF; multipart via `navel-documentos-upload.php` com **`maquinaId` obrigatório** (anti-tamper da pasta).
 - [x] **`documentos-api.php` (navel-site):** token serviço **`at_integration_bearer`** (âmbito só `Assistencia Tecnica/`), permissões fechadas para integração (sem OneDrive/delete/taxonomia/reindex). **CORS no browser não é obrigatório** se o AT usar proxy PHP no mesmo `navel.pt` — o token não sai do servidor.
 - [x] **`documentos-api.php`:** campo multipart opcional **`linkMachineIds`** (JSON) para gravar vínculos no mesmo upload; `cpanelMachineLinksGet` / `cpanelMachineLinksSet` em `documentosCpanelApi.js`.
 - [x] Desassociar máquina: `POST action=machine_links` com lista `machineIds` actualizada (o índice `.navel-index.json` já segue ao gravar vínculos).
@@ -259,6 +257,18 @@ Entregue e validada em **2026-04-16**. Documentação: [`ONEDRIVE.md`](./ONEDRIV
 - Apagar um ficheiro no OneDrive enquanto outro user carrega uma versão mais recente no portal → o local é preservado e re-enviado no push seguinte.
 - Stats agregadas do modo bidireccional visíveis em `mounts.<id>.lastSyncStats`.
 - Mudar `onedrive_at_direction` para `'push'` restaura o comportamento anterior (Sharepoint-fonte-de-verdade puro) sem outras alterações.
+
+---
+
+## Próximas melhorias transversais (curto prazo — qualidade global)
+
+Prioridade para incrementar **performance percebida**, **UI/UX** e **consistência i18n** com esforço contido. Complementam a lista “10 melhorias prioritárias” acima (portal documental).
+
+1. **Paridade do castelhano no site público** — Replicar o padrão `pt-ui-patch` para **`es.json`** (`es-ui-patch-data.mjs` + merge no `merge-locales`), evitando corpo em inglês com bandeira ES.
+2. **Gate de regressão i18n** — Pequeno script (`scripts/check-locale-parity.mjs`) em `prebuild` ou `npm run` manual: avisar/falhar se valores de um conjunto de chaves (ex.: `home.title`, `footer.tagline`) em `pt.json` forem **iguais** aos de `en.json`.
+3. **Imagens da home / campanhas** — `loading="lazy"` e dimensões explícitas abaixo da dobra; rever compressão WebP/JPEG das peças grandes para **LCP** e **CLS**.
+4. **Portal — progresso explícito** — Indicador linear ou percentagem durante **sync OneDrive** e **upload em lote** (já há estados; falta feedback contínuo visível).
+5. **A11y em modais e paleta** — `aria-modal`, *focus trap* e **Escape** consistentes em `DocumentPreviewModal`, `PortalCommandPalette` e diálogos de confirmação (alvo **WCAG 2.1 AA** nas interacções críticas).
 
 ---
 

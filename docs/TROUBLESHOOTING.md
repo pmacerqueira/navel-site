@@ -16,6 +16,21 @@ Runbook rápido para erros frequentes em desenvolvimento e publicação.
 
 ---
 
+## 2a1) Site em inglês com português seleccionado (menu em PT, corpo em EN)
+
+### Sintoma
+Bandeira / `nav` em português, mas textos da home, rodapé, contacto, etc. em inglês.
+
+### Causa
+`src/locales/pt.json` tinha (ou voltou a ter) o mesmo copy que `en.json` nessas chaves — por exemplo após editar `pt.json` à mão sem actualizar **`scripts/pt-ui-patch-data.mjs`**, ou se `apply-pt-ui-patch` não correu no `prebuild`.
+
+### Ações
+1. `npm run merge-locales` (ou `npm run build`).
+2. Confirmar que `src/locales/pt.json` → `home.title` (e `footer.tagline`) estão em português.
+3. Para alterar copy PT estável: editar **`scripts/pt-ui-patch-data.mjs`** e voltar a correr `npm run merge-locales`.
+
+---
+
 ## 2a) Página Privacidade mostra chaves como `privacy.introWho`
 
 ### Sintoma
@@ -70,7 +85,7 @@ Site publicado mantém versão antiga.
 
 ### Deploy automático falha
 Ver **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** → secção Troubleshooting para
-erros FTPS (TLS, `530 Login incorrect`, `ECONNREFUSED`, SFTP key, UAPI).
+erros de deploy (FTPS/SFTP/UAPI, timeout, `530`, `ECONNREFUSED`, porta SSH **11022** em navel.pt — ver `docs/HOSTING-CIBERCONCEITO-NAVEL.md`).
 
 ---
 

@@ -35,6 +35,7 @@ const MANUFACTURER_DOMAINS = [
   'kemppi.com',
   'chicagopneumatic.com',
   'istobal.com',
+  'www.istobal.com',
   'electroportugal.com',
   'ryobitools.eu',
   'schaeffler.com',
@@ -197,7 +198,7 @@ const BRAND_DEFINITIONS = {
   istobal: {
     name: 'Istobal',
     logo: '/images/brands/istobal.png',
-    url: 'https://www.istobal.com/',
+    url: 'https://istobal.com/pt/',
   },
   limge: { name: 'Limge', logo: '/images/brands/limge.svg', url: null },
   cleancraft: { name: 'Cleancraft', logo: '/images/brands/cleancraft.png', url: 'https://xtools.pt/pt/catalogos/folhetos' },
@@ -240,7 +241,7 @@ const BRANDS_BY_CATEGORY_IDS = {
    ============================================================================= */
 
 /** Ordem das marcas em destaque (primeira linha): Milwaukee, Beta, SKF, AEG, Ryobi, King Tony */
-const BRANDS_FEATURED_ORDER = ['milwaukee', 'beta', 'facom', 'skf', 'aeg', 'ryobi', 'kingtony']
+const BRANDS_FEATURED_ORDER = ['milwaukee', 'istobal', 'beta', 'facom', 'skf', 'aeg', 'ryobi', 'kingtony']
 
 /** Lista plana de marcas com id (para página Marcas, rodapé, etc.) — ordenada: destaque primeiro, depois alfabético */
 export const BRANDS = Object.entries(BRAND_DEFINITIONS)

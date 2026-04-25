@@ -1,14 +1,14 @@
 {
   "name": "navel-website",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "scripts": {
     "create-admin": "node scripts/create-admin.js",
-    "merge-locales": "node scripts/merge-privacy-locales.js && node scripts/merge-rgpd-locales.js",
+    "merge-locales": "node scripts/merge-privacy-locales.js && node scripts/merge-rgpd-locales.js && node scripts/apply-pt-ui-patch.mjs && node scripts/apply-es-ui-patch.mjs && node scripts/merge-istobal-i18n.mjs",
     "prebuild": "node scripts/sync-documentos-api-config.mjs && npm run merge-locales",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview",
     "optimize-images": "node scripts/optimize-images.js",
     "kill-preview": "node scripts/kill-preview-ports.js",
@@ -22,10 +22,12 @@
     "deploy:zips": "node scripts/cpanel-deploy.mjs --zips",
     "deploy:file": "node scripts/cpanel-deploy.mjs",
     "deploy:all": "node scripts/cpanel-deploy.mjs --all",
+    "deploy:at-manut": "node scripts/cpanel-deploy.mjs --at-manut",
     "cpanel:hygiene": "node scripts/cpanel-server-hygiene.mjs",
     "test:onedrive-cron": "node scripts/test-onedrive-cron-now.mjs"
   },
   "dependencies": {
+    "@fluentui/react-icons": "^2.0.324",
     "@supabase/supabase-js": "^2.95.3",
     "i18next": "^23.7.0",
     "react": "^18.2.0",
@@ -40,6 +42,7 @@
     "basic-ftp": "^5.3.0",
     "sharp": "^0.34.5",
     "ssh2-sftp-client": "^12.1.1",
-    "vite": "^5.1.0"
+    "vite": "^5.1.0",
+    "puppeteer": "^24.2.0"
   }
 }

@@ -9,7 +9,7 @@ Este documento existe para **evitar repetir erros operacionais** (build vs zip, 
 
 1. **`npm run build`**  
    - Compila o frontend (Vite) para `dist/`.  
-   - Corre `prebuild` → `merge-locales` (privacidade/RGPD).  
+   - Corre `prebuild` → `merge-locales` (privacidade/RGPD + patch PT em `src/locales/pt.json`).  
    - **`VITE_*` é lido no build** — mudar `.env` sem rebuild = site antigo.
 
 2. **`npm run make-zip`** (ou `OPTIMIZAR.bat`, que inclui passos extra)  

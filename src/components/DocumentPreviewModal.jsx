@@ -1,11 +1,23 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+const NARROW_FOR_PREVIEW_MQ = '(max-width: 720px)'
 
 /**
  * Pré-visualização em modal: PDF e imagens via objectURL; outros tipos mostram aviso.
+ * Em viewports estreitos, link para abrir o blob noutro separador (Safari iOS e iframe PDF).
  */
 export default function DocumentPreviewModal({ open, title, blobUrl, fileType, onClose }) {
   const { t } = useTranslation()
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_FOR_PREVIEW_MQ)
+    const sync = () => setIsNarrowViewport(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
 
   useEffect(() => {
     if (!open) return undefined
@@ -27,9 +39,31 @@ export default function DocumentPreviewModal({ open, title, blobUrl, fileType, o
       <div className="doc-preview-modal__panel">
         <header className="doc-preview-modal__header">
           <span className="doc-preview-modal__title">{title}</span>
-          <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={onClose}>
-            {t('auth.portalPreviewClose')}
-          </button>
+          <div className="doc-preview-modal__header-actions">
+            {fileType === 'pdf' && blobUrl ? (
+              <a
+                href={blobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--outline btn--sm doc-portal__btn-on-light"
+              >
+                {t('auth.portalPreviewOpenNewTab')}
+              </a>
+            ) : null}
+            {fileType === 'image' && blobUrl && isNarrowViewport ? (
+              <a
+                href={blobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--outline btn--sm doc-portal__btn-on-light"
+              >
+                {t('auth.portalPreviewOpenNewTab')}
+              </a>
+            ) : null}
+            <button type="button" className="btn btn--outline btn--sm doc-portal__btn-on-light" onClick={onClose}>
+              {t('auth.portalPreviewClose')}
+            </button>
+          </div>
         </header>
         <div className="doc-preview-modal__body">
           {fileType === 'pdf' && blobUrl && (

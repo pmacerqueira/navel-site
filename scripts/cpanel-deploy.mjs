@@ -12,6 +12,7 @@
  *   npm run deploy:zips                      # ../cpanel-upload/*.zip → public_html/_deploy-zips/
  *   npm run deploy:file -- public/documentos-api.php
  *   npm run deploy:all                       # site + php (NÃO inclui zips nem catalogos)
+ *   npm run deploy:at-manut                  # ../AT_Manut/dist → public_html/manut/
  *
  * Flags:
  *   --dry             mostra só; NÃO envia (default se faltar --yes)
@@ -20,10 +21,12 @@
  *   --protocol=X      override (ftps|sftp|uapi)
  *   --file=CAMINHO    envia um ficheiro específico
  *   --php             inclui public/*.php
- *   --site            inclui dist/ (catalogos/ e images/catalogos/ excluídos)
- *   --with-catalogos  no --site, inclui dist/catalogos/ e dist/images/catalogos/
+ *   --site            inclui dist/ (PDFs em catalogos/ e images/catalogos/ excluídos;
+ *                     catalogos/index.html e catalogos/README.md enviam sempre se existirem)
+ *   --with-catalogos  no --site, inclui também PDFs em dist/catalogos/ e dist/images/catalogos/
  *   --zips            inclui ../cpanel-upload/*.zip em _deploy-zips/
  *   --all             = --site + --php  (NÃO inclui --zips nem catálogos)
+ *   --at-manut        ../AT_Manut/dist → {remote}/manut/ (PWA AT_Manut)
  *   --remote=/PATH    override do remote root
  */
 import { createHash } from 'crypto'
@@ -44,6 +47,7 @@ import { enforceProjectFence, loadCpanelEnv, requireKeys } from './cpanel-env.mj
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const NAVEL_SITE = join(__dirname, '..')
 const NAVEL_ROOT = join(NAVEL_SITE, '..')
+const AT_MANUT_DIST = join(NAVEL_ROOT, 'AT_Manut', 'dist')
 const CPANEL_UPLOAD = join(NAVEL_ROOT, 'cpanel-upload')
 const CACHE_FILE = join(__dirname, '.cpanel-deploy-cache.json')
 
@@ -111,9 +115,12 @@ function hashFile(path) {
 }
 
 const SITE_EXCLUDE_DIRS = ['catalogos', 'images/catalogos']
+/** Sem --with-catalogos: não enviar PDFs em dist/catalogos/ mas permitir shell pré-renderizado. */
+const CATALOGOS_ALLOW_FILES = new Set(['catalogos/index.html', 'catalogos/README.md'])
 
 function isSiteExcluded(relPath) {
   if (args.flags.has('with-catalogos')) return false
+  if (CATALOGOS_ALLOW_FILES.has(relPath)) return false
   return SITE_EXCLUDE_DIRS.some((ex) => relPath === ex || relPath.startsWith(ex + '/'))
 }
 
@@ -170,6 +177,19 @@ function collectFiles() {
       if (!name.endsWith('.zip')) continue
       const full = join(CPANEL_UPLOAD, name)
       files.push({ local: full, remote: posix.join(remoteRoot, '_deploy-zips', name) })
+    }
+  }
+
+  if (args.flags.has('at-manut')) {
+    if (!existsSync(AT_MANUT_DIST)) {
+      throw new Error(
+        'AT_Manut/dist não existe. Corre "npm run build" em ../AT_Manut primeiro.',
+      )
+    }
+    const manutRemoteRoot = posix.join(remoteRoot.replace(/\/$/, ''), 'manut')
+    for (const f of walk(AT_MANUT_DIST)) {
+      const rel = relative(AT_MANUT_DIST, f).replace(/\\/g, '/')
+      files.push({ local: f, remote: posix.join(manutRemoteRoot, rel) })
     }
   }
 
@@ -357,9 +377,10 @@ async function main() {
     !args.flags.has('site') &&
     !args.flags.has('php') &&
     !args.flags.has('zips') &&
-    !args.flags.has('all')
+    !args.flags.has('all') &&
+    !args.flags.has('at-manut')
   ) {
-    console.error('Indica o que queres enviar: --site / --php / --zips / --all / --file=PATH')
+    console.error('Indica o que queres enviar: --site / --php / --zips / --all / --at-manut / --file=PATH')
     console.error('Ex.: npm run deploy:dry -- --all')
     process.exit(1)
   }

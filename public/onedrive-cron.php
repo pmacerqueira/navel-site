@@ -18,6 +18,8 @@ declare(strict_types=1);
 
 header('X-Content-Type-Options: nosniff');
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, private');
+header('Pragma: no-cache');
 
 require_once __DIR__ . '/onedrive-lib.php';
 

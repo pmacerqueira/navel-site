@@ -1,5 +1,20 @@
 # Changelog — navel-site
 
+## [0.2.7] — 2026-04-17
+
+### i18n — site público em português (correcção estrutural)
+
+- **Problema:** Com idioma `pt` activo, o **menu** e parte da **área reservada** apareciam em português, mas o **corpo** das páginas institucionais (home, rodapé, contacto, catálogos, etc.) continuava em **inglês** porque `src/locales/pt.json` repetia o conteúdo de `en.json` nessas chaves (só `nav`, `privacy`, `rgpd` e `auth` estavam consistentemente em PT).
+- **Solução:** Ficheiro de patch **`scripts/pt-ui-patch-data.mjs`** (textos PT-PT para marketing, CGVS UI, pesquisa, cookies, etc.) e **`scripts/apply-pt-ui-patch.mjs`**, que faz *deep merge* em `pt.json`.
+- **Build:** `npm run merge-locales` passa a ser `merge-privacy` → `merge-rgpd` → **`apply-pt-ui-patch`**; `npm run build` mantém `prebuild` → `merge-locales` → Vite. Assim, cada build reaplica o patch PT **depois** de injetar `privacy` / `rgpd`.
+- **Operação:** Deploy para produção: `npm run build` → `npm run deploy:all -- --yes` (executado; ~721 KB de assets JS/CSS/HTML novos enviados via FTPS incremental).
+
+### Documentação e roadmap
+
+- Actualizados `README.md`, `DEPLOY.md`, `docs/INDEX.md`, `docs/TROUBLESHOOTING.md`, `docs/OTIMIZACOES.md`, `docs/SETUP.md`, `PUBLICAR-CHECKLIST.txt`, `docs/ROADMAP-SHAREPOINT.md` — fluxo de traduções, troubleshooting “site em inglês com PT”, e **cinco melhorias prioritárias** de qualidade/performance/UI/UX para iteração imediata.
+
+---
+
 ## [0.2.6] — 2026-04-17
 
 ### Auditoria de sanitização e hardening de segurança

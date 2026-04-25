@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 const ROUTE_BREADCRUMBS = {
   '/milwaukee': ['nav.milwaukee'],
+  '/istobal': ['nav.istobal'],
   '/produtos': ['nav.products'],
   '/marcas': ['nav.brands'],
   '/sobre': ['nav.about'],

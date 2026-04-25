@@ -13,8 +13,8 @@
 >
 > | Projecto | Destino | Ferramenta correcta |
 > |---|---|---|
-> | `navel-site` | cPanel `www.navel.pt` | **este pipeline** (`npm run deploy:*`) |
-> | `AT_Manut` | cPanel `public_html/manut/` | `npm run build:zip` + upload manual |
+> | `navel-site` | cPanel `public_html/` (raiz do site) | **este pipeline** (`npm run deploy:*`) |
+> | `AT_Manut` | cPanel `public_html/manut/` + `public_html/api/` | **PWA:** `npm run build` em **AT_Manut** → `npm run deploy:at-manut -- --yes` em **navel-site** (lê `../AT_Manut/dist`). **API:** `cpanel-deploy.mjs --file=…/servidor-cpanel/api/… --remote=<CPANEL_REMOTE_ROOT>/api`. **Fallback:** `build:zip` + File Manager. Ver **AT_Manut** `docs/DEPLOY_CHECKLIST.md` |
 > | `app-stocks-next` | **Vercel** | Vercel CLI / `git push` |
 > | `app-ftecnicas` | Desktop/Electron | Build local |
 > | `navel-propostas` | Servidor local | Ver `AGENTS.md` do repo |
@@ -41,11 +41,15 @@
 São suportados 3 protocolos. Podes configurar mais do que um e o `deploy:probe`
 diz quais funcionam no teu cPanel.
 
+**Build antes do deploy:** `npm run build` corre `prebuild` → `merge-locales` (privacidade + RGPD + **patch PT** em `src/locales/pt.json`) e só depois o Vite. Sem um build fresco, o deploy pode enviar um `dist/` desactualizado (incl. textos errados por idioma).
+
 | Protocolo | Quando usar | Segurança |
 |---|---|---|
-| **FTPS** (default) | Funciona em praticamente todos os planos cPanel | Boa (TLS obrigatório) |
-| **SFTP** | Só se o plano tiver SSH ativo | Excelente |
-| **UAPI** (API Token) | Alternativa HTTPS na porta 2083 | Excelente (token revogável) |
+| **SFTP** | Plano com SSH (ex. **navel.pt / CiberConceito**, porta **11022**) | Excelente |
+| **FTPS** | Universal; usar conta **FTP dedicada** (`deploy@…`) | Boa (TLS); alguns hosts limitam ligações paralelas |
+| **UAPI** (API Token) | Quando FTP/SSH falham e o painel permite tokens | Excelente (token revogável) |
+
+Em **navel.pt**, o suporte recomendou **SFTP na porta 11022** e reduzir ligações FTP paralelas se houver bloqueios — ver **`docs/HOSTING-CIBERCONCEITO-NAVEL.md`**. O `CPANEL_PROTOCOL` em `.env.cpanel` escolhe o modo activo (`sftp` ou `ftps`).
 
 Comandos principais (corridos da pasta `navel-site`):
 
@@ -56,8 +60,38 @@ npm run deploy:all       # envia site + PHP (NÃO inclui ZIPs nem catálogos; pe
 npm run deploy:php       # só public/*.php
 npm run deploy:site      # só dist/ (precisa de build prévio; catálogos excluídos)
 npm run deploy:zips      # só ZIPs em ../cpanel-upload/ para _deploy-zips/
+npm run deploy:at-manut  # ../AT_Manut/dist → public_html/manut/ (precisa build prévio no repo AT_Manut)
 npm run deploy:file -- --file=public/documentos-api.php
 ```
+
+### AT_Manut — PWA em `public_html/manut/`
+
+O alvo **`manut/`** é o build Vite do repositório **irmão** `AT_Manut`: o script resolve `NAVEL_ROOT/AT_Manut/dist` (ou seja, `../AT_Manut/dist` relativamente à pasta `navel-site`).
+
+```powershell
+cd c:\Cursor_Projetos\NAVEL\AT_Manut
+npm run build
+cd c:\Cursor_Projetos\NAVEL\navel-site
+npm run deploy:at-manut -- --dry   # opcional: ver o que iria enviar
+npm run deploy:at-manut -- --yes
+```
+
+### AT_Manut — ficheiros em `public_html/api/`
+
+O **mesmo** `.env.cpanel` e o **mesmo** `cpanel-deploy.mjs` servem para enviar ficheiros PHP que vivem na pasta **`api/`** do servidor (API REST do AT_Manut), desde que indiques o caminho remoto completo da pasta `api` com `--remote`.
+
+Exemplo (Windows; ajusta o caminho local do repo AT_Manut se for diferente):
+
+```powershell
+cd c:\Cursor_Projetos\NAVEL\navel-site
+node scripts/cpanel-deploy.mjs --file="c:/Cursor_Projetos/NAVEL/AT_Manut/servidor-cpanel/api/data.php" --remote="<CPANEL_REMOTE_ROOT>/api" --yes
+```
+
+Substitui `<CPANEL_REMOTE_ROOT>` pelo valor de `CPANEL_REMOTE_ROOT` no teu `.env.cpanel` (ex.: `/home/navel/public_html`). O ficheiro fica em `…/public_html/api/data.php`.
+
+> **Nota:** o modo `--file` calcula o nome remoto a partir da pasta pai do ficheiro local; o `--remote` deve ser **a pasta `api` no servidor**, não o `public_html` raiz.
+
+Documentação canónica do AT_Manut (estrutura `manut` + `api`, RBAC, checklist completo): repositório **AT_Manut**, `docs/DEPLOY_CHECKLIST.md`.
 
 Todos os envios são **incrementais** — ficheiros inalterados são ignorados via
 hash SHA-1 guardado em `scripts/.cpanel-deploy-cache.json` (gitignored).
@@ -79,11 +113,17 @@ Anota o que encontraste. O mínimo viável é **"FTP Accounts"**.
 
 ---
 
-## Passo 2 — Criar credenciais dedicadas
+## Passo 2 — Credenciais
 
-**Nunca uses a conta cPanel principal para uploads automatizados.**
+### SFTP (recomendado em navel.pt / CiberConceito)
 
-### FTPS (recomendado)
+Usa o **utilizador SSH** (normalmente o **nome curto da conta cPanel**, ex. `navel`) e a **password do login do painel** — **não** é a subconta `deploy@`. Porta **11022**. O destino no servidor costuma ser caminho absoluto `CPANEL_REMOTE_ROOT=/home/USER/public_html`.
+
+Podes usar **chave SSH** em vez de password (`CPANEL_SFTP_KEY_PATH`); ver secção SFTP abaixo.
+
+### FTPS — conta FTP dedicada
+
+**Para FTPS**, cria uma **subconta FTP** só para deploy (não uses a password principal no cliente FTP se puderes evitar):
 
 1. Em cPanel → **FTP Accounts** → **Add FTP Account**:
    - **Login:** `deploy` (fica `deploy@navel.pt`)
@@ -95,14 +135,9 @@ Anota o que encontraste. O mínimo viável é **"FTP Accounts"**.
    - **Username** (ex.: `deploy@navel.pt`)
    - **Port** (normalmente 21; se te oferecer "Explicit FTP over TLS", é isso)
 
-### SFTP (opcional, só se tiveres SSH)
+### SFTP com chave SSH (opcional)
 
-1. Em cPanel → **SSH Access** → **Manage SSH Keys** → **Generate a New Key**,
-   ou usa uma chave existente. Autoriza a chave pública.
-2. Descarrega a chave privada para um caminho seguro (ex.:
-   `C:\Users\Pedro\.ssh\navel_cpanel_ed25519`) e **não a coloques no repo**.
-3. Utilizador e host são geralmente o teu user cPanel em `navel.pt` na
-   porta 22 (alguns hosts usam 2222).
+Em vez de password, podes usar `CPANEL_SFTP_KEY_PATH` + chave autorizada no cPanel (**SSH Access → Manage SSH Keys**). Porta **navel.pt: 11022** — ver **`docs/HOSTING-CIBERCONCEITO-NAVEL.md`**.
 
 ### cPanel API Token (opcional)
 
@@ -121,12 +156,26 @@ Na raiz de `navel-site`:
 Copy-Item .env.cpanel.example .env.cpanel
 ```
 
-Abre `.env.cpanel` e preenche **apenas o(s) bloco(s) que vais usar**. Exemplo
-mínimo (só FTPS):
+Abre `.env.cpanel` e preenche o protocolo que vais usar. **Dois padrões:**
+
+**A) SFTP (navel.pt / CiberConceito)** — caminho absoluto para `public_html`:
 
 ```env
 CPANEL_HOST=navel.pt
-CPANEL_REMOTE_ROOT=/public_html
+CPANEL_REMOTE_ROOT=/home/SEU_USER/public_html
+CPANEL_PROTOCOL=sftp
+
+CPANEL_SFTP_HOST=navel.pt
+CPANEL_SFTP_PORT=11022
+CPANEL_SFTP_USER=SEU_USER
+CPANEL_SFTP_PASSWORD="a-tua-password-com-aspas-se-tiver_=_caracteres_especiais"
+```
+
+**B) FTPS** — subconta `deploy@`; se o FTP abre já dentro de `public_html`, usa `CPANEL_REMOTE_ROOT=/`:
+
+```env
+CPANEL_HOST=navel.pt
+CPANEL_REMOTE_ROOT=/
 CPANEL_PROTOCOL=ftps
 
 CPANEL_FTP_HOST=ftp.navel.pt
@@ -139,8 +188,7 @@ CPANEL_FTP_SECURE=true
 > **Importante:** `.env.cpanel` está no `.gitignore`. Confirma com
 > `git status` que não aparece antes de commitares.
 
-Nota sobre `CPANEL_REMOTE_ROOT`: se a conta FTP já te coloca dentro de
-`public_html` ao ligar, deixa `/` — caso contrário, `/public_html`.
+Segredos consolidados fora do repo: **`C:\Cursor_Projetos\NAVEL\.navel-secrets\navel-secrets.env`** — manter alinhado com `.env.cpanel` ao mudar passwords.
 
 ---
 
@@ -150,21 +198,28 @@ Nota sobre `CPANEL_REMOTE_ROOT`: se a conta FTP já te coloca dentro de
 npm run deploy:probe
 ```
 
-Saída esperada:
+Exemplo com **SFTP** activo:
 
 ```
 === cPanel Probe — www.navel.pt ===
 
 Host base:     navel.pt
-Remote root:   /public_html
+Remote root:   /home/navel/public_html
+Protocolo ativo: sftp
+
+❌ FTPS                 Timeout ou não usado
+✅ SFTP                 … · user=na*el@navel.pt:11022
+❌ UAPI                 UAPI não configurado
+
+Protocolos OK: sftp
+```
+
+Exemplo só com **FTPS**:
+
+```
 Protocolo ativo: ftps
-
-✅ FTPS                 240ms · dir=/public_html · user=de********pt@ftp.navel.pt:21
-❌ SFTP                 SFTP não configurado (falta host/user/password ou chave)
-❌ UAPI (API Token)    UAPI não configurado (falta host/user/token)
-
-Protocolos OK: ftps
-Sugestão CPANEL_PROTOCOL=ftps
+✅ FTPS                 … @ftp.navel.pt:21
+❌ SFTP                 …
 ```
 
 Se FTPS falhar com `530 Login incorrect`, revê user/password. Se falhar com
@@ -250,8 +305,9 @@ Alguns cPanel usam certificados self-signed internos. O `basic-ftp` por defeito
 ### `ECONNREFUSED` / timeout
 
 - Porta bloqueada por firewall. Testa de outra rede.
-- Se o host usa porta não-standard (990 para FTPS implícito, 2222 para SSH),
-  ajusta `CPANEL_FTP_PORT` / `CPANEL_SFTP_PORT`.
+- Se o host usa porta não-standard (990 para FTPS implícito, 2222 ou **11022** para SSH/SFTP),
+  ajusta `CPANEL_FTP_PORT` / `CPANEL_SFTP_PORT`. **navel.pt:** ver `docs/HOSTING-CIBERCONCEITO-NAVEL.md`.
+- **FTP:** alguns hosts (ex. CiberConceito) limitam ligações simultâneas; se houver bloqueios temporários, reduzir paralelismo no cliente FTP para **2–3** ligações.
 
 ### SFTP: `All configured authentication methods failed`
 
@@ -270,14 +326,12 @@ Alguns cPanel usam certificados self-signed internos. O `basic-ftp` por defeito
 
 ## Boas práticas de segurança
 
-1. **Conta dedicada:** nunca a conta cPanel principal para o deploy.
-2. **Password única:** gerada pelo gestor, diferente de tudo o resto.
-3. **Rotação:** troca a credencial a cada 3–6 meses ou quando houver suspeita.
-4. **Scope mínimo:** FTP limita a pasta; API token com expiração curta.
-5. **`.env.cpanel` nunca sai do teu PC:** verifica sempre antes de commit.
-6. **`--dry` primeiro:** confirma lista antes de sobrescrever produção.
-7. **Cache de deploy:** ajuda a detectar ficheiros que mudaram inesperadamente
-   (se algo aparece lá que não editaste, investiga).
-8. **Backup:** mantém `public/documentos-api-config.php` em local seguro
+1. **FTPS:** preferir **subconta FTP** dedicada (`deploy@`) com chroot a `public_html`. **SFTP:** o utilizador é o da **conta principal** SSH — password forte ou chave; o `cpanel-deploy` só envia ficheiros, não abre shell interactivo.
+2. **Passwords e rotação:** uma credencial por serviço; trocar a cada 3–6 meses ou após partilha em canal inseguro (chat, email, ticket).
+3. **Scope mínimo:** subconta FTP limita pasta; API token com expiração curta.
+4. **`.env.cpanel` e `.navel-secrets`:** ficam só na tua máquina; confirma `git status` antes de commit.
+5. **`--dry` primeiro:** confirma lista antes de sobrescrever produção.
+6. **Cache de deploy:** detecta ficheiros que mudaram inesperadamente.
+7. **Backup:** mantém `public/documentos-api-config.php` em local seguro
    (gestor de passwords ou backup offline) — é gerado no build mas contém
    segredos.

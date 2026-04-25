@@ -45,15 +45,17 @@ URL local: `http://localhost:3000`
 
 ## 5) Build e validação
 
+O **`npm run build`** executa **`prebuild`**: sincroniza config PHP opcional, depois **`merge-locales`** (privacidade + RGPD + patch PT em `pt.json`). Sem este passo, `/privacidade` pode mostrar chaves cruas e o site público em PT pode aparecer em inglês.
+
 ```bash
 npm run build
 npm run preview
 ```
 
 Para publicação no cPanel:
-- **Automatizado (preferido):** `npm run deploy:all -- --yes` após `npm run build`.
-  Setup único em **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** (`.env.cpanel` + conta FTP dedicada).
-- **Manual:** `OPTIMIZAR.bat` → upload do ZIP no File Manager.
+- **Automatizado (preferido):** `npm run build` → `npm run deploy:all -- --yes`.
+  Configuração: **`docs/DEPLOY-AUTOMATICO-CPANEL.md`** (`.env.cpanel`; em navel.pt **SFTP:11022**). Segredos: workspace **`NAVEL\.navel-secrets`**.
+- **Manual:** `npm run make-zip` → ZIP com ficheiros na raiz (sem `catalogos/` por defeito) → upload no File Manager.
 
 ---
 
@@ -62,8 +64,7 @@ Para publicação no cPanel:
 Se quiseres usar o `npm run deploy:*` em vez do File Manager manual:
 
 1. Seguir **`docs/DEPLOY-AUTOMATICO-CPANEL.md`**:
-   - Criar conta FTP dedicada em cPanel → FTP Accounts (ex.: `deploy@navel.pt`,
-     restrita a `/public_html`)
+   - **SFTP (navel.pt):** user principal + porta **11022**; ou **FTPS:** subconta `deploy@`
    - Copiar `.env.cpanel.example` → `.env.cpanel` e preencher
 2. Testar com `npm run deploy:probe` (não escreve nada).
 3. Primeiro deploy: `npm run deploy:dry` → `npm run deploy:all -- --yes`.

@@ -31,6 +31,7 @@ UI (rótulos):
 - **API de documentos:** `public/documentos-api.php` (versãoada)
 - **Taxonomia técnica:** fonte de verdade no AT_Manut
 - **Biblioteca única:** consumida pelas duas apps por API
+- **Alojamento:** `navel-site` e AT_Manut partilham a **mesma conta cPanel** e o domínio **www.navel.pt** — site na raiz de `public_html/`, PWA AT_Manut em `public_html/manut/`, API MySQL do AT_Manut em `public_html/api/`. Ver `DEPLOY.md` e, no repo AT_Manut, `docs/DEPLOY_CHECKLIST.md`.
 
 ### Princípio chave
 AT_Manut define a árvore técnica (categoria/subcategoria/máquina).  
@@ -261,7 +262,8 @@ function navel_doc_proxy_json(string $method, array $opts): array {
 // Vincular um ficheiro existente a uma ou mais máquinas
 // navel_doc_proxy_json('POST', [ 'json' => [ 'action' => 'machine_links', 'path' => $relPath, 'machineIds' => [$id], 'source' => 'MANUAL' ] ]);
 
-// Upload multipart: mesmo Bearer no header; campo opcional `linkMachineIds` = JSON array no formulário para gravar vínculos no mesmo pedido
+// Upload multipart: mesmo Bearer no header; campo opcional `linkMachineIds` = JSON array no formulário para gravar vínculos no mesmo pedido.
+// Em produção (AT_Manut): o script `navel-documentos-upload.php` exige também POST `maquinaId` — o servidor confirma que `path` é exactamente a pasta AT desse equipamento (impede escrita noutra subpasta mesmo com JWT válido).
 ```
 
 No repositório **navel-site**, o cliente já expõe `cpanelMachineLinksGet` / `cpanelMachineLinksSet` em `src/lib/documentosCpanelApi.js` para a Área Reservada (JWT utilizador). O AT_Manut deve usar apenas o proxy servidor com `at_integration_bearer`.

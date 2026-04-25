@@ -22,7 +22,7 @@ export default function HeroAnimation() {
       <div className="hero-animation__track">
         {HERO_SLIDES.map((slide, i) => {
           const alt = t(slide.altKey)
-          const isBrochure = !!slide.internalPath
+          const isBrochure = slide.imgLayout === 'brochure'
           const hasBg = !!slide.backgroundImage
           const slideContent = (
             <img

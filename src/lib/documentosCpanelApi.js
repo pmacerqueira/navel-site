@@ -66,25 +66,68 @@ export async function cpanelList(accessToken, path) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error(data.error || data.message || res.statusText || 'list_failed')
+    throw normalizeHttpError(data, res.status, res.statusText || 'list_failed')
   }
   const items = Array.isArray(data.items) ? data.items : []
   return items.map((row) => {
     if (row.isFile) {
       const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {}
+      const mime =
+        typeof row.mimeType === 'string' && row.mimeType.trim() !== ''
+          ? row.mimeType.trim()
+          : 'application/octet-stream'
       return {
         name: row.name,
         metadata: {
           size: typeof row.size === 'number' ? row.size : 0,
-          mimetype: 'application/octet-stream',
+          mimetype: mime,
           ...meta,
         },
         updated_at: row.updatedAt || null,
+        created_at: row.createdAt || null,
         currentVersion: row.currentVersion,
+        serverVersions: Array.isArray(row.versions) ? row.versions : [],
       }
     }
     return { name: row.name, metadata: {} }
   })
+}
+
+/**
+ * Últimos documentos do índice (.navel-index.json), ordenados por updatedAt.
+ * @param {number} [limit]
+ */
+export async function cpanelRecentDocuments(accessToken, limit = 10) {
+  const url = buildUrl({ action: 'recent_documents', limit: String(limit) })
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'recent_failed')
+  }
+  return Array.isArray(data.items) ? data.items : []
+}
+
+/**
+ * Auditoria servidor (.navel-audit.log) — só administrador.
+ * @param {{ limit?: number, actionFilter?: string, pathPrefix?: string, since?: string }} [opts]
+ */
+export async function cpanelAuditLog(accessToken, opts = {}) {
+  const params = { action: 'audit_log' }
+  if (opts.limit != null) params.limit = String(opts.limit)
+  if (opts.actionFilter) params.actionFilter = opts.actionFilter
+  if (opts.pathPrefix) params.pathPrefix = opts.pathPrefix
+  if (opts.since) params.since = opts.since
+  const url = buildUrl(params)
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw normalizeHttpError(data, res.status, res.statusText || 'audit_log_failed')
+  }
+  return Array.isArray(data.items) ? data.items : []
 }
 
 /**
@@ -144,7 +187,7 @@ export async function cpanelDownloadBlob(accessToken, relPath, options = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || err.message || res.statusText || 'download_failed')
+    throw normalizeHttpError(err, res.status, res.statusText || 'download_failed')
   }
   return res.blob()
 }
@@ -375,7 +418,7 @@ export async function cpanelOnedriveSyncPreview(accessToken, mountId = 'at') {
 /**
  * Um passo de sincronizacao (polling). Repetir ate `done === true`.
  */
-export async function cpanelOnedriveSyncTick(accessToken, mountId, chunkBudgetSeconds = 90) {
+export async function cpanelOnedriveSyncTick(accessToken, mountId, chunkBudgetSeconds = 120) {
   const base = apiBaseUrl()
   if (!base) throw new Error('no_documentos_api')
   const res = await fetchWithTimeout(
@@ -524,8 +567,14 @@ export async function cpanelOnedriveForceReconcile(accessToken, mountId = 'at', 
 }
 
 function normalizeHttpError(data, status, fallback) {
-  const err = new Error(data?.error || data?.message || fallback || 'request_failed')
+  const msgRaw =
+    (typeof data?.message === 'string' && data.message.trim() !== '')
+      ? data.message.trim()
+      : typeof data?.error === 'string' && data.error.trim() !== ''
+        ? data.error.trim()
+        : ''
+  const err = new Error(msgRaw || fallback || 'request_failed')
   err.status = status
-  err.code = data?.error || ''
+  err.code = typeof data?.error === 'string' ? data.error : ''
   return err
 }

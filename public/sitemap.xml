@@ -1,68 +1,123 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://navel.pt/</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://navel.pt/sobre</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/sobre"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/sobre?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/sobre?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/sobre"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://navel.pt/produtos</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/produtos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/produtos?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/produtos?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/produtos"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://navel.pt/marcas</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/marcas"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/marcas?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/marcas?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/marcas"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://navel.pt/milwaukee</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/milwaukee"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/milwaukee?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/milwaukee?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/milwaukee"/>
+    <lastmod>2026-04-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://navel.pt/istobal</loc>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/istobal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/istobal?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/istobal?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/istobal"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://navel.pt/servicos</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/servicos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/servicos?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/servicos?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/servicos"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://navel.pt/catalogos</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/catalogos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/catalogos?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/catalogos?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/catalogos"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://navel.pt/contacto</loc>
-    <lastmod>2026-03-23</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/contacto"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/contacto?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/contacto?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/contacto"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://navel.pt/privacidade</loc>
-    <lastmod>2026-03-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/privacidade"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/privacidade?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/privacidade?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/privacidade"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://navel.pt/rgpd</loc>
-    <lastmod>2026-03-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/rgpd"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/rgpd?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/rgpd?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/rgpd"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://navel.pt/condicoes-gerais</loc>
-    <lastmod>2026-03-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://navel.pt/condicoes-gerais"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://navel.pt/condicoes-gerais?lng=en"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://navel.pt/condicoes-gerais?lng=es"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://navel.pt/condicoes-gerais"/>
+    <lastmod>2026-04-17</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

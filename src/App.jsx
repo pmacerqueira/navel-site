@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import Home from './pages/Home'
 
 const Milwaukee = lazy(() => import('./pages/Milwaukee'))
+const Istobal = lazy(() => import('./pages/Istobal'))
 const Produtos = lazy(() => import('./pages/Produtos'))
 const Marcas = lazy(() => import('./pages/Marcas'))
 const Sobre = lazy(() => import('./pages/Sobre'))
@@ -45,6 +46,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/milwaukee" element={<Milwaukee />} />
+          <Route path="/istobal" element={<Istobal />} />
           <Route path="/produtos" element={<Produtos />} />
           <Route path="/marcas" element={<Marcas />} />
           <Route path="/sobre" element={<Sobre />} />

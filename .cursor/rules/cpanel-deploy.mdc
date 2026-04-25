@@ -17,7 +17,7 @@ destinos de deploy próprios:
 | Projecto | Destino | Ferramenta correcta |
 |---|---|---|
 | `navel-site` | cPanel `www.navel.pt` | **este pipeline** (`npm run deploy:*`) |
-| `AT_Manut` | cPanel `public_html/manut/` | `npm run build:zip` + upload do ZIP |
+| `AT_Manut` | cPanel `public_html/manut/` + `public_html/api/` | **PWA:** em `AT_Manut` → `npm run build`; em **`navel-site`** → `npm run deploy:at-manut -- --yes` (usa `../AT_Manut/dist`). **API / JSON:** `node scripts/cpanel-deploy.mjs --file=…/AT_Manut/servidor-cpanel/api/… --remote=<CPANEL_REMOTE_ROOT>/api --yes`. **Fallback:** `build:zip` + File Manager — ver **AT_Manut** `docs/DEPLOY_CHECKLIST.md` |
 | `app-stocks-next` | **Vercel** | Vercel CLI / git push (não cPanel!) |
 | `app-ftecnicas` | Desktop/Electron | Build local |
 | `navel-propostas` | Servidor local / deploy próprio | Seguir `AGENTS.md` do repo |
@@ -47,9 +47,10 @@ arrastar ficheiros manualmente.
 ## Pré-requisitos (verificar uma vez por sessão)
 
 - `.env.cpanel` existe (está no `.gitignore`, nunca entra no repo).
-- `npm run deploy:probe` deve passar em FTPS antes do primeiro deploy da
-  sessão. Se falhar, **parar** e reportar o erro ao utilizador em vez
-  de improvisar.
+- `npm run deploy:probe` deve passar no protocolo activo (**SFTP** na porta
+  **11022** para navel.pt / CiberConceito, ou FTPS) antes do primeiro deploy
+  da sessão. Se falhar, **parar** e reportar o erro ao utilizador em vez de
+  improvisar.
 
 ## Fluxo por tipo de pedido
 
@@ -71,7 +72,7 @@ arrastar ficheiros manualmente.
 
 ### "build e publica" / "publica no cpanel" / "upload site"
 
-1. `npm run build` (inclui `prebuild` → `merge-locales`).
+1. `npm run build` (inclui `prebuild` → `merge-locales`: privacy + rgpd + patch PT em `src/locales/pt.json`).
 2. `npm run deploy:dry` (mostra `--site` + `--php`).
 3. Mostrar o resumo ao utilizador: N ficheiros, MB totais, sensíveis a ir.
 4. **Pedir confirmação** antes de `npm run deploy:all -- --yes`.
@@ -124,6 +125,7 @@ arrastar ficheiros manualmente.
 | Só PHP | `npm run deploy:php -- --yes` |
 | Só site | `npm run build && npm run deploy:site -- --yes` |
 | Site + PHP | `npm run build && npm run deploy:all -- --yes` |
+| PWA AT_Manut → `manut/` | `npm run deploy:at-manut -- --yes` (exige `../AT_Manut/dist` após build no repo AT_Manut) |
 | + catálogos PDF | acrescentar `--with-catalogos` |
 | Forçar re-envio | acrescentar `--force` |
 
@@ -140,6 +142,7 @@ irmã `../cpanel-upload/` — útil para:
 ## Continuidade entre agentes
 
 - Documento canónico: `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
+- **navel.pt (CiberConceito):** SSH/SFTP na porta **11022**; limites de ligações FTP — `docs/HOSTING-CIBERCONCEITO-NAVEL.md`.
 - Cache de hashes: `scripts/.cpanel-deploy-cache.json` (gitignored).
 - Credenciais: só em `.env.cpanel` local do utilizador.
 - Não prometer "zero erros"; seguir sempre `dry-run → confirmar → `--yes``.

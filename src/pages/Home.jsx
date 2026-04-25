@@ -74,6 +74,56 @@ export default function Home() {
         </div>
       </section>
 
+      <ScrollReveal as="section" className="section home-brand-mosaic" aria-labelledby="home-brand-mosaic-heading">
+        <div className="container">
+          <h2 id="home-brand-mosaic-heading" className="visually-hidden">
+            {t('home.brandMosaicHeading')}
+          </h2>
+          <div className="home-brand-mosaic__grid">
+            <article className="home-brand-mosaic__tile home-brand-mosaic__tile--milwaukee">
+              <div className="home-brand-mosaic__logo-wrap">
+                <img
+                  src={assetUrl('/images/brands/milwaukee-logo.png')}
+                  alt=""
+                  width={200}
+                  height={56}
+                  loading="lazy"
+                  decoding="async"
+                  className="home-brand-mosaic__logo"
+                />
+              </div>
+              <div className="home-brand-mosaic__content">
+                <h3 className="home-brand-mosaic__title">{t('home.milwaukeeSectionTitle')}</h3>
+                <p className="text-muted home-brand-mosaic__text">{t('home.milwaukeeSectionText')}</p>
+                <Link to="/milwaukee" className="btn btn--primary home-brand-mosaic__cta">
+                  {t('home.milwaukeeSectionCta')}
+                </Link>
+              </div>
+            </article>
+            <article className="home-brand-mosaic__tile home-brand-mosaic__tile--istobal">
+              <div className="home-brand-mosaic__logo-wrap">
+                <img
+                  src={assetUrl('/images/brands/istobal.png')}
+                  alt=""
+                  width={200}
+                  height={80}
+                  loading="lazy"
+                  decoding="async"
+                  className="home-brand-mosaic__logo home-brand-mosaic__logo--istobal"
+                />
+              </div>
+              <div className="home-brand-mosaic__content">
+                <h3 className="home-brand-mosaic__title">{t('home.istobalSectionTitle')}</h3>
+                <p className="text-muted home-brand-mosaic__text">{t('home.istobalSectionText')}</p>
+                <Link to="/istobal" className="btn btn--primary home-brand-mosaic__cta">
+                  {t('home.istobalSectionCta')}
+                </Link>
+              </div>
+            </article>
+          </div>
+        </div>
+      </ScrollReveal>
+
       <ScrollReveal as="section" className="section home-campaigns">
         <div className="container">
           <h2 className="home-campaigns__title">{t('home.campaignsTitle')}</h2>
@@ -81,24 +131,43 @@ export default function Home() {
           <div className="home-campaigns__grid">
             {HOME_CAMPAIGNS.map((campaign, i) => (
               <ScrollReveal key={i} delay={i * 60}>
-                <a
-                  href={campaign.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="card home-campaign-card"
-                  aria-label={`${t(campaign.titleKey)} — ${t('news.viewDownload')} (${t('a11y.opensNewWindow')})`}
-                >
-                  <div className="home-campaign-card__thumb">
-                    <img src={assetUrl(campaign.src)} alt="" loading="lazy" decoding="async" />
-                  </div>
-                  <div className="home-campaign-card__body">
-                    <span className="home-campaign-card__brand">{t(campaign.brandKey)}</span>
-                    <h3 className="home-campaign-card__title">{t(campaign.titleKey)}</h3>
-                    {campaign.urgencyKey && (
-                      <span className="home-campaign-card__urgency">{t(campaign.urgencyKey)}</span>
-                    )}
-                  </div>
-                </a>
+                {campaign.internal ? (
+                  <Link
+                    to={campaign.url}
+                    className="card home-campaign-card"
+                    aria-label={`${t(campaign.titleKey)} — ${t('home.campaignInternalHint')}`}
+                  >
+                    <div className="home-campaign-card__thumb">
+                      <img src={assetUrl(campaign.src)} alt="" loading="lazy" decoding="async" />
+                    </div>
+                    <div className="home-campaign-card__body">
+                      <span className="home-campaign-card__brand">{t(campaign.brandKey)}</span>
+                      <h3 className="home-campaign-card__title">{t(campaign.titleKey)}</h3>
+                      {campaign.urgencyKey && (
+                        <span className="home-campaign-card__urgency">{t(campaign.urgencyKey)}</span>
+                      )}
+                    </div>
+                  </Link>
+                ) : (
+                  <a
+                    href={campaign.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="card home-campaign-card"
+                    aria-label={`${t(campaign.titleKey)} — ${t('news.viewDownload')} (${t('a11y.opensNewWindow')})`}
+                  >
+                    <div className="home-campaign-card__thumb">
+                      <img src={assetUrl(campaign.src)} alt="" loading="lazy" decoding="async" />
+                    </div>
+                    <div className="home-campaign-card__body">
+                      <span className="home-campaign-card__brand">{t(campaign.brandKey)}</span>
+                      <h3 className="home-campaign-card__title">{t(campaign.titleKey)}</h3>
+                      {campaign.urgencyKey && (
+                        <span className="home-campaign-card__urgency">{t(campaign.urgencyKey)}</span>
+                      )}
+                    </div>
+                  </a>
+                )}
               </ScrollReveal>
             ))}
           </div>

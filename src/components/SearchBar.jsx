@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { LANG_Q, normalizeLangCode } from '../utils/langUrl'
 import { BRANDS } from '../data/brands'
 import { CATEGORY_KEYS, CATEGORY_IDS } from '../constants'
+import { IconSearch } from './FluentIcons'
 
 export default function SearchBar() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const lang = normalizeLangCode(i18n.language)
+  const toWithLang = (path) =>
+    lang === 'pt' ? path : `${path}?${LANG_Q}=${lang}`
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -41,15 +46,15 @@ export default function SearchBar() {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (brandMatches.length > 0) {
-      navigate('/marcas')
+      navigate(toWithLang('/marcas'))
       setOpen(false)
       setQuery('')
     } else if (categoryMatches.length > 0) {
-      navigate('/produtos')
+      navigate(toWithLang('/produtos'))
       setOpen(false)
       setQuery('')
     } else if (q) {
-      navigate('/produtos')
+      navigate(toWithLang('/produtos'))
       setOpen(false)
       setQuery('')
     }
@@ -83,10 +88,7 @@ export default function SearchBar() {
           autoComplete="off"
         />
         <button type="submit" className="search-bar__btn" aria-label={t('search.submit')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
+          <IconSearch size={20} />
         </button>
       </form>
       {showDropdown && (
@@ -99,7 +101,7 @@ export default function SearchBar() {
                   {brandMatches.map((b) => (
                     <Link
                       key={b.id}
-                      to="/marcas"
+                      to={toWithLang('/marcas')}
                       className="search-bar__item"
                       role="option"
                       onClick={() => {
@@ -118,7 +120,7 @@ export default function SearchBar() {
                   {categoryMatches.map((c) => (
                     <Link
                       key={c.id}
-                      to="/produtos"
+                      to={toWithLang('/produtos')}
                       className="search-bar__item"
                       role="option"
                       onClick={() => {

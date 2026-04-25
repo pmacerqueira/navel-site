@@ -6,6 +6,19 @@ O **login e a aprovação de utilizadores** continuam no **Supabase** (Auth + ta
 
 ---
 
+## Erro `invalid_token` na área reservada (API PHP)
+
+A API chama o Supabase `GET /auth/v1/user` com o JWT do utilizador e o cabeçalho `apikey` igual à **mesma** chave pública que o site usa (`VITE_SUPABASE_ANON_KEY` no build). No servidor, isso tem de estar em **`documentos-api-config.php`** como `supabase_anon_key` (e `supabase_url` alinhado).
+
+- Se estes valores **não coincidirem** com o projecto Supabase actual, ou estiverem vazios, a API responde **`invalid_token`**.
+- O prebuild executa `scripts/sync-documentos-api-config.mjs`, que **actualiza só** `supabase_url`, `supabase_anon_key` e (se definido) `onedrive_cron_token`. **Não apaga** Microsoft, taxonomy, `at_integration_bearer`, etc.
+- **Fonte recomendada:** na workspace `NAVEL`, manter os valores correctos em **`..\.navel-secrets\navel-secrets.env`**. O script faz merge: lê `.env` e depois **sobrescreve** com `navel-secrets.env` quando existe (evita um `.env` local desactualizado).
+- **Desligar o sync** (útil se o `documentos-api-config.php` local for só cópia manual do servidor): no `.env`, `DOCUMENTOS_API_CONFIG_SYNC=0`.
+- Antes de cada gravação, o script guarda backup em **`.doc-api-config-backups/`** (não é copiado para `dist/`).
+- **Correcção no cPanel:** editar `public_html/documentos-api-config.php` e colar `supabase_url` + `supabase_anon_key` iguais ao Supabase Dashboard (API Keys), ou voltar a fazer deploy do `documentos-api-config.php` gerado localmente após `npm run build` com secrets correctos.
+
+---
+
 ## Checklist rápida
 
 1. No PC: `.env` → `VITE_DOCUMENTOS_API=/documentos-api.php` (ou caminho correcto) → **`npm run build`** → enviar:

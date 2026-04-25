@@ -128,4 +128,24 @@ return [
      */
     'upload_max_bytes'             => 100 * 1024 * 1024,
     // 'upload_blocked_extensions' => ['php','phtml','phar','exe','sh','bat'],
+
+    /**
+     * Rate limit por email nas acções pesadas (list / search / recent_documents).
+     * Janela em segundos; max = pedidos permitidos por janela (o pedido que excede devolve 429).
+     * Admin e token AT_Manut (at_integration_bearer) ficam isentos.
+     * rate_limit_disabled => true desliga tudo (ex.: debug local).
+     */
+    // 'rate_limit_disabled' => false,
+    // 'rate_limit_list_max' => 120, 'rate_limit_list_window' => 60,
+    // 'rate_limit_search_max' => 60, 'rate_limit_search_window' => 60,
+    // 'rate_limit_recent_max' => 90, 'rate_limit_recent_window' => 60,
+
+    /**
+     * Opcional — notificação HTTP quando um ficheiro com documentType = PLANO_MANUTENCAO
+     * é carregado (ex.: endpoint no AT_Manut ou automation). POST JSON:
+     * { event, path, uploadedBy, documentType, ts }.
+     * Se plano_manutencao_notify_secret não for vazio, envia header X-Navel-Notify-Secret.
+     */
+    'plano_manutencao_notify_url'    => '',
+    'plano_manutencao_notify_secret' => '',
 ];

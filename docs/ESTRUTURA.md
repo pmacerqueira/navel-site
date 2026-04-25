@@ -56,13 +56,15 @@ Adicionar marca: editar `brands.js` + colocar logo em `public/images/brands/`.
 - Idioma em `localStorage` só após consentimento (RGPD).
 - **Privacidade (texto longo):** fonte em **`scripts/privacy-locale-{pt,en,es}.json`** — fundido na chave `privacy` por **`scripts/merge-privacy-locales.js`**.
 - **RGPD:** fonte em **`scripts/rgpd-locale-{pt,en,es}.json`** — fundido na chave `rgpd` por **`scripts/merge-rgpd-locales.js`** (actualiza também `footer.rgpd`).
-- **`package.json`:** `npm run merge-locales` executa os dois merges; **`prebuild`** chama `merge-locales` antes de cada `vite build`, para o site publicado não ficar com chaves i18n em falta na política.
+- **Copy público em PT (home, footer, contacto, catálogos, etc.):** fonte em **`scripts/pt-ui-patch-data.mjs`** — fundido em **`src/locales/pt.json`** por **`scripts/apply-pt-ui-patch.mjs`** (corre a seguir aos merges privacy/rgpd).
+- **`package.json`:** `npm run merge-locales` executa privacy → rgpd → patch PT → **`merge-istobal-i18n.mjs`** (chaves `istobal.*`, destaques home/produtos, `nav.istobal`, `hero.slideIstobal`); **`prebuild`** chama `merge-locales` antes de cada `vite build`.
+- **Páginas de marca:** `src/pages/Milwaukee.jsx` (`/milwaukee`), `src/pages/Istobal.jsx` (`/istobal`) — SEO em `PageTitle.jsx`; conteúdo ISTOBAL alinhado a informação pública em istobal.com/pt, com nota nas estatísticas.
 
 ---
 
 ## Build
 
-- **Antes do Vite:** `prebuild` → `merge-locales` (privacy + rgpd → `src/locales`).
+- **Antes do Vite:** `prebuild` → `merge-locales` (privacy + rgpd + patch PT → `src/locales`).
 - Vite: chunks (vendor, router, i18n), lazy pages
 - Output: `dist/` com index.html, assets/, images/, robots.txt, sitemap.xml, .htaccess, send-contact.php
 

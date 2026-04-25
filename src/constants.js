@@ -13,6 +13,8 @@ export const MANUT_DASHBOARD_URL = 'https://navel.pt/manut/'
 /** URLs dos sites oficiais dos fabricantes */
 export const MILWAUKEE_URL = 'https://pt.milwaukeetool.eu/'
 export const MILWAUKEE_DOWNLOADS_URL = 'https://pt.milwaukeetool.eu/downloads/'
+/** ISTOBAL — site oficial PT (lavagem e cuidado de veículos) */
+export const ISTOBAL_URL = 'https://istobal.com/pt/'
 export const BETA_URL = 'https://www.beta-tools.com/'
 export const KAESER_URL = 'https://www.kaeser.com/'
 /** XTOOLS — fornecedor que representamos; links diretos dos folhetos (página: xtools.pt/pt/catalogos/folhetos) */
@@ -90,6 +92,7 @@ export const NAV_ITEMS = [
     subKeys: PRODUCT_CATEGORY_SUBKEYS,
   },
   { path: '/marcas', labelKey: 'nav.brands' },
+  { path: '/istobal', labelKey: 'nav.istobal' },
   { path: '/servicos', labelKey: 'nav.services' },
   { path: '/catalogos', labelKey: 'nav.catalogs' },
   { path: '/contacto', labelKey: 'nav.contact' },
@@ -100,6 +103,7 @@ export const FOOTER_NAV = [
   { path: '/sobre', key: 'nav.about' },
   { path: '/produtos', key: 'nav.products' },
   { path: '/marcas', key: 'nav.brands' },
+  { path: '/istobal', key: 'nav.istobal' },
   { path: '/servicos', key: 'nav.services' },
   { path: '/catalogos', key: 'nav.catalogs' },
   { path: '/contacto', key: 'nav.contact' },
@@ -113,6 +117,14 @@ export const LANGUAGES = [
 
 /** Campanhas em destaque na Home (Milwaukee + campanhas custom) */
 export const HOME_CAMPAIGNS = [
+  {
+    brandKey: 'home.campaignIstobalBrand',
+    titleKey: 'home.campaignIstobalTitle',
+    src: '/images/brands/istobal.png',
+    brandColor: '#0088ce',
+    url: '/istobal',
+    internal: true,
+  },
   {
     brandKey: 'news.brandMilwaukee',
     titleKey: 'news.brochureMilwaukeeHDNQ1',
@@ -194,6 +206,11 @@ export const HOME_CAMPAIGNS = [
 /** Slides do carrossel da Home: 3 logos + campanhas atuais */
 export const HERO_SLIDES = [
   { src: '/images/brands/milwaukee-logo.png', altKey: 'hero.slideMilwaukee', href: MILWAUKEE_URL },
+  {
+    src: '/images/brands/istobal.png',
+    altKey: 'hero.slideIstobal',
+    internalPath: '/istobal',
+  },
   { src: '/images/brands/beta.png', altKey: 'hero.slideBeta', href: BETA_URL, backgroundImage: '/images/beta-bg.png' },
   { src: '/images/brands/kaeser.png', altKey: 'hero.slideKaeser', href: KAESER_URL, backgroundImage: '/images/kaeser-bg.png' },
   { src: '/images/campaigns/slide-milwaukee_HDN_Q1.jpg', altKey: 'news.brochureMilwaukeeHDNQ1', href: MILWAUKEE_DOWNLOADS_URL },

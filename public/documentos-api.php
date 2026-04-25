@@ -12,6 +12,8 @@ const N_DOC_TAXONOMY_CACHE_FILE = '.navel-taxonomy-cache.json';
 const N_DOC_INDEX_FILE = '.navel-index.json';
 const N_DOC_DOCUMENT_TYPES = ['MANUAL_UTILIZADOR', 'MANUAL_TECNICO', 'PLANO_MANUTENCAO', 'OUTROS'];
 const N_DOC_ONEDRIVE_ROOT = 'Comercial';
+/** Limite de caracteres na pesquisa (evita abuso / varreduras muito pesadas). */
+const N_DOC_SEARCH_QUERY_MAX = 200;
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'onedrive-lib.php';
 
@@ -26,6 +28,7 @@ if (!is_file($configFile)) {
 
 /** @var array{supabase_url?:string,supabase_anon_key?:string,jwt_secret?:string,admin_email?:string,documentos_root?:string,debug?:bool,taxonomy_auth_token?:string} $cfg */
 $cfg = require $configFile;
+$GLOBALS['N_DOC_CFG'] = $cfg;
 
 $GLOBALS['N_DOC_DEBUG'] = !empty($cfg['debug']);
 
@@ -124,6 +127,7 @@ try {
 
         if ($action === 'list') {
             n_doc_require_folder_permission($permissions, 'list', $rel, $email, $isAdmin);
+            n_doc_rate_limit_hit('list', $email, $isAdmin);
             n_doc_action_list($rootReal, $rel, $permissions, $email, $isAdmin);
         }
 
@@ -134,6 +138,7 @@ try {
         }
 
         if ($action === 'search') {
+            n_doc_rate_limit_hit('search', $email, $isAdmin);
             n_doc_action_search($rootReal, $permissions, $email, $isAdmin);
         }
 
@@ -158,6 +163,16 @@ try {
             }
             n_doc_require_folder_permission($permissions, 'download', $folderRel, $email, $isAdmin);
             n_doc_action_machine_links_get($rootReal, $rel);
+        }
+
+        if ($action === 'audit_log') {
+            n_doc_integration_forbidden();
+            n_doc_action_audit_log_read($rootReal, $isAdmin);
+        }
+
+        if ($action === 'recent_documents') {
+            n_doc_rate_limit_hit('recent_documents', $email, $isAdmin);
+            n_doc_action_recent_documents($rootReal, $permissions, $email, $isAdmin);
         }
 
         if ($action === 'reindex') {
@@ -313,8 +328,104 @@ function n_doc_json(int $code, array $data): void
 {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
+    // Evita que proxies ou browsers guardem respostas autenticadas (listas, metadados).
+    header('Cache-Control: no-store, private');
+    header('Pragma: no-cache');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+/**
+ * Limite simples por utilizador (email) em janela deslizante — ficheiro + flock.
+ * Pasta `.navel-rate` ao lado deste script (ficheiros com nomes opacos; não expostos pelo SPA).
+ * Falha aberta se não for possível criar/escrever (API continua a responder).
+ *
+ * @param 'list'|'search'|'recent_documents' $bucket
+ */
+function n_doc_rate_limit_hit(string $bucket, string $email, bool $isAdmin): void
+{
+    if ($isAdmin || !empty($GLOBALS['N_DOC_AT_INTEGRATION'])) {
+        return;
+    }
+    $cfg = $GLOBALS['N_DOC_CFG'] ?? [];
+    if (!empty($cfg['rate_limit_disabled'])) {
+        return;
+    }
+    $limits = [
+        'list' => [
+            'max' => (int)($cfg['rate_limit_list_max'] ?? 120),
+            'window' => (int)($cfg['rate_limit_list_window'] ?? 60),
+        ],
+        'search' => [
+            'max' => (int)($cfg['rate_limit_search_max'] ?? 60),
+            'window' => (int)($cfg['rate_limit_search_window'] ?? 60),
+        ],
+        'recent_documents' => [
+            'max' => (int)($cfg['rate_limit_recent_max'] ?? 90),
+            'window' => (int)($cfg['rate_limit_recent_window'] ?? 60),
+        ],
+    ];
+    if (!isset($limits[$bucket])) {
+        return;
+    }
+    $max = $limits[$bucket]['max'];
+    $window = $limits[$bucket]['window'];
+    if ($max <= 0 || $window <= 0) {
+        return;
+    }
+
+    $dir = __DIR__ . DIRECTORY_SEPARATOR . '.navel-rate';
+    if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return;
+    }
+    $actor = strtolower(trim($email));
+    if ($actor === '') {
+        return;
+    }
+    $path = $dir . DIRECTORY_SEPARATOR . hash('sha256', $bucket . "\0" . $actor) . '.rl';
+    $now = time();
+    $fp = @fopen($path, 'c+');
+    if ($fp === false) {
+        return;
+    }
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        return;
+    }
+    try {
+        rewind($fp);
+        $raw = stream_get_contents($fp);
+        $state = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+        $start = is_array($state) && isset($state['t']) ? (int)$state['t'] : 0;
+        $count = is_array($state) && isset($state['c']) ? (int)$state['c'] : 0;
+        if ($start <= 0 || ($now - $start) >= $window) {
+            $start = $now;
+            $count = 0;
+        }
+        $count++;
+        if ($count > $max) {
+            $retry = $window - ($now - $start);
+            if ($retry < 1) {
+                $retry = 1;
+            }
+            header('Retry-After: ' . (string)$retry);
+            n_doc_json(429, [
+                'ok' => false,
+                'error' => 'rate_limit',
+                'message' => 'Muitos pedidos neste intervalo. Aguarde alguns segundos e tente de novo.',
+                'retry_after' => $retry,
+            ]);
+        }
+        ftruncate($fp, 0);
+        rewind($fp);
+        $written = fwrite($fp, json_encode(['t' => $start, 'c' => $count], JSON_UNESCAPED_UNICODE));
+        if ($written !== false) {
+            fflush($fp);
+        }
+    } finally {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
 }
 
 function n_doc_public_exception_message(Throwable $e): string
@@ -391,6 +502,11 @@ function n_doc_jwt_verify_hs256(string $jwt, string $secret): ?array
     }
 
     [$h64, $p64, $sig64] = $parts;
+    $hPadded = str_pad(strtr($h64, '-_', '+/'), (int)(4 * ceil(strlen($h64) / 4)), '=', STR_PAD_RIGHT);
+    $headerPayload = json_decode((string)base64_decode($hPadded, true), true);
+    if (is_array($headerPayload) && isset($headerPayload['alg']) && strtoupper((string)$headerPayload['alg']) !== 'HS256') {
+        return null;
+    }
     $mac = hash_hmac('sha256', $h64 . '.' . $p64, $secret, true);
     $expected = rtrim(strtr(base64_encode($mac), '+/', '-_'), '=');
     $sig64Norm = rtrim(strtr($sig64, '+/', '-_'), '=');
@@ -772,13 +888,18 @@ function n_doc_action_list(string $rootReal, string $rel, array $permissions, st
         }
 
         $meta = $isFile ? n_doc_load_file_metadata($full) : null;
+        $mime = $isFile ? n_doc_detect_mime($full) : null;
+        $versions = $isFile && is_array($meta['versions'] ?? null) ? $meta['versions'] : [];
         $items[] = [
             'name' => $name,
             'isFile' => $isFile,
             'size' => $isFile ? (int)@filesize($full) : 0,
+            'mimeType' => $mime,
             'metadata' => $isFile ? ($meta['metadata'] ?? n_doc_normalize_metadata([])) : null,
             'currentVersion' => $isFile ? (int)($meta['currentVersion'] ?? 1) : null,
             'updatedAt' => $isFile ? (string)($meta['updatedAt'] ?? '') : null,
+            'createdAt' => $isFile ? (string)($meta['createdAt'] ?? '') : null,
+            'versions' => $isFile ? $versions : null,
         ];
     }
 
@@ -795,6 +916,170 @@ function n_doc_mime_allows_inline(string $mime): bool
         return true;
     }
     return false;
+}
+
+function n_doc_detect_mime(string $absPath): string
+{
+    if (!is_file($absPath)) {
+        return 'application/octet-stream';
+    }
+    if (class_exists('finfo', false)) {
+        $fi = new finfo(FILEINFO_MIME_TYPE);
+        $det = @$fi->file($absPath);
+        if (is_string($det) && $det !== '') {
+            return $det;
+        }
+    }
+
+    return 'application/octet-stream';
+}
+
+/**
+ * Notificação opcional quando é carregado um PLANO_MANUTENCAO (webhook HTTP).
+ * Config: plano_manutencao_notify_url, plano_manutencao_notify_secret (opcional, header X-Navel-Notify-Secret).
+ */
+function n_doc_maybe_notify_plano_manutencao(array $cfg, string $relPath, string $documentType, string $email): void
+{
+    if ($documentType !== 'PLANO_MANUTENCAO') {
+        return;
+    }
+    $url = trim((string)($cfg['plano_manutencao_notify_url'] ?? ''));
+    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return;
+    }
+    $u = parse_url($url);
+    if (!is_array($u) || empty($u['scheme']) || !in_array(strtolower((string)$u['scheme']), ['https', 'http'], true)) {
+        return;
+    }
+    $payload = [
+        'event' => 'plano_manutencao_upload',
+        'path' => $relPath,
+        'uploadedBy' => $email,
+        'documentType' => $documentType,
+        'ts' => gmdate('c'),
+    ];
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    if (!is_string($json)) {
+        return;
+    }
+    $secret = trim((string)($cfg['plano_manutencao_notify_secret'] ?? ''));
+    if (!function_exists('curl_init')) {
+        return;
+    }
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return;
+    }
+    $headers = [
+        'Content-Type: application/json',
+        'Accept: application/json',
+    ];
+    if ($secret !== '') {
+        $headers[] = 'X-Navel-Notify-Secret: ' . $secret;
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $json,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 4,
+    ]);
+    if (defined('CURLPROTO_HTTP') && defined('CURLPROTO_HTTPS')) {
+        curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+        curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    }
+    @curl_exec($ch);
+    curl_close($ch);
+}
+
+function n_doc_action_audit_log_read(string $rootReal, bool $isAdmin): void
+{
+    if (!$isAdmin) {
+        n_doc_json(403, ['ok' => false, 'error' => 'forbidden']);
+    }
+    $limit = min(500, max(1, (int)($_GET['limit'] ?? 200)));
+    $actionNeedle = strtolower(trim((string)($_GET['actionFilter'] ?? '')));
+    $pathPrefix = trim((string)($_GET['pathPrefix'] ?? ''));
+    $since = trim((string)($_GET['since'] ?? ''));
+    $logPath = $rootReal . DIRECTORY_SEPARATOR . N_DOC_AUDIT_LOG_FILE;
+    if (!is_file($logPath)) {
+        n_doc_json(200, ['ok' => true, 'items' => []]);
+    }
+    $raw = @file_get_contents($logPath);
+    if (!is_string($raw) || $raw === '') {
+        n_doc_json(200, ['ok' => true, 'items' => []]);
+    }
+    $lines = preg_split("/\r\n|\n|\r/", $raw) ?: [];
+    $items = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        $row = json_decode($line, true);
+        if (!is_array($row)) {
+            continue;
+        }
+        $ts = (string)($row['timestamp'] ?? '');
+        if ($since !== '' && $ts !== '' && strcmp($ts, $since) < 0) {
+            continue;
+        }
+        $act = strtolower((string)($row['action'] ?? ''));
+        if ($actionNeedle !== '' && !str_contains($act, $actionNeedle)) {
+            continue;
+        }
+        $p = (string)($row['path'] ?? '');
+        if ($pathPrefix !== '' && !str_starts_with($p, $pathPrefix)) {
+            continue;
+        }
+        $items[] = [
+            'timestamp' => $ts,
+            'userEmail' => (string)($row['userEmail'] ?? ''),
+            'action' => (string)($row['action'] ?? ''),
+            'path' => $p,
+        ];
+    }
+    usort($items, static function ($a, $b) {
+        return strcmp((string)($b['timestamp'] ?? ''), (string)($a['timestamp'] ?? ''));
+    });
+    $items = array_slice($items, 0, $limit);
+    n_doc_json(200, ['ok' => true, 'items' => $items]);
+}
+
+function n_doc_action_recent_documents(string $rootReal, array $permissions, string $email, bool $isAdmin): void
+{
+    $limit = min(50, max(1, (int)($_GET['limit'] ?? 10)));
+    $index = n_doc_load_index($rootReal);
+    $documents = is_array($index['documents'] ?? null) ? $index['documents'] : [];
+    $rows = [];
+    foreach ($documents as $relPath => $doc) {
+        if (!is_string($relPath) || $relPath === '') {
+            continue;
+        }
+        if (!is_array($doc)) {
+            continue;
+        }
+        $folderRel = dirname($relPath);
+        if ($folderRel === '.') {
+            $folderRel = '';
+        }
+        if (!n_doc_is_allowed($permissions, 'download', $folderRel, $email, $isAdmin)) {
+            continue;
+        }
+        $rows[] = [
+            'path' => $relPath,
+            'name' => (string)($doc['fileName'] ?? basename($relPath)),
+            'updatedAt' => (string)($doc['updatedAt'] ?? ''),
+            'metadata' => n_doc_normalize_metadata($doc['metadata'] ?? []),
+            'currentVersion' => (int)($doc['currentVersion'] ?? 1),
+        ];
+    }
+    usort($rows, static function ($a, $b) {
+        return strcmp((string)($b['updatedAt'] ?? ''), (string)($a['updatedAt'] ?? ''));
+    });
+    $rows = array_slice($rows, 0, $limit);
+    n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'items' => $rows]);
 }
 
 function n_doc_action_download(string $rootReal, string $rel, bool $inline = false): void
@@ -920,6 +1205,7 @@ function n_doc_action_upload(string $rootReal, array $permissions, string $email
     $relPath = ($relDir !== '' ? $relDir . '/' : '') . basename($dest);
     $machineLinks = n_doc_load_machine_links($rootReal);
     n_doc_index_upsert_document($rootReal, $relPath, $metaState, $machineLinks, $email);
+    n_doc_maybe_notify_plano_manutencao($GLOBALS['N_DOC_CFG'] ?? [], $relPath, (string)($incomingMeta['documentType'] ?? ''), $email);
 
     $linkMachineIdsRaw = trim((string)($_POST['linkMachineIds'] ?? ''));
     if ($linkMachineIdsRaw !== '') {
@@ -1147,9 +1433,135 @@ function n_doc_search_sort_results(array &$results): void
     });
 }
 
+/**
+ * Pesquisa sem termo `q`: filtra por vínculos a equipamento e/ou metadados usando só o índice
+ * e `.navel-machine-links.json` — evita varrer todo o disco (OOM / timeout no proxy AT_Manut).
+ *
+ * @param array<string,string> $filters
+ * @return list<array<string,mixed>>
+ */
+function n_doc_search_items_index_only(
+    string $rootReal,
+    array $permissions,
+    string $email,
+    bool $isAdmin,
+    array $filters,
+    string $machineId,
+    bool $hasMetaFilter
+): array {
+    $index = n_doc_load_index($rootReal);
+    $documents = is_array($index['documents'] ?? null) ? $index['documents'] : [];
+    $allMachineLinks = n_doc_load_machine_links($rootReal);
+
+    $documentsByNorm = [];
+    foreach ($documents as $p => $row) {
+        $documentsByNorm[str_replace('\\', '/', (string) $p)] = $row;
+    }
+    $linksByNorm = [];
+    foreach ($allMachineLinks as $p => $linkRow) {
+        if (is_array($linkRow)) {
+            $linksByNorm[str_replace('\\', '/', (string) $p)] = $linkRow;
+        }
+    }
+    $pathSet = array_fill_keys(array_merge(array_keys($documentsByNorm), array_keys($linksByNorm)), true);
+    $byPath = [];
+
+    foreach (array_keys($pathSet) as $rel) {
+        $base = basename($rel);
+        if ($base === '' || $base === N_DOC_MARKER || str_ends_with($base, '.meta.json')) {
+            continue;
+        }
+        if ($base !== '' && $base[0] === '.' && $base !== N_DOC_MARKER) {
+            continue;
+        }
+        $abs = n_doc_join_root($rootReal, $rel);
+        if (!is_file($abs)) {
+            continue;
+        }
+        $folderRel = dirname($rel);
+        if ($folderRel === '.') {
+            $folderRel = '';
+        }
+        if (!n_doc_is_allowed($permissions, 'download', $folderRel, $email, $isAdmin)) {
+            continue;
+        }
+
+        $idxRow = $documentsByNorm[$rel] ?? null;
+
+        if ($idxRow !== null) {
+            $meta = n_doc_normalize_metadata($idxRow['metadata'] ?? []);
+        } else {
+            $meta = n_doc_normalize_metadata(n_doc_load_file_metadata($abs)['metadata'] ?? []);
+        }
+
+        if ($hasMetaFilter) {
+            $filterOk = true;
+            foreach ($filters as $fk => $fv) {
+                if ($fv === '') {
+                    continue;
+                }
+                if (!str_contains(strtolower((string)($meta[$fk] ?? '')), strtolower($fv))) {
+                    $filterOk = false;
+                    break;
+                }
+            }
+            if (!$filterOk) {
+                continue;
+            }
+        }
+
+        $rowMachineLinks = ['machineIds' => [], 'source' => '', 'confidence' => null, 'updatedAt' => '', 'updatedBy' => ''];
+        if ($idxRow !== null && is_array($idxRow['machineLinks'] ?? null)) {
+            $rowMachineLinks = $idxRow['machineLinks'];
+        } elseif (isset($linksByNorm[$rel])) {
+            $rowMachineLinks = $linksByNorm[$rel];
+        }
+
+        if ($machineId !== '') {
+            $linkedMachines = $rowMachineLinks['machineIds'] ?? [];
+            if (!is_array($linkedMachines) || !in_array($machineId, array_map('strval', $linkedMachines), true)) {
+                continue;
+            }
+        }
+
+        if ($idxRow !== null) {
+            $byPath[$rel] = [
+                'path' => $rel,
+                'name' => (string)($idxRow['fileName'] ?? $base),
+                'size' => (int)($idxRow['fileSize'] ?? (is_file($abs) ? @filesize($abs) : 0)),
+                'currentVersion' => (int)($idxRow['currentVersion'] ?? 1),
+                'updatedAt' => (string)($idxRow['updatedAt'] ?? ''),
+                'metadata' => $meta,
+                'machineLinks' => $rowMachineLinks,
+                'isFolder' => false,
+            ];
+        } else {
+            $byPath[$rel] = [
+                'path' => $rel,
+                'name' => $base,
+                'size' => is_file($abs) ? (int)@filesize($abs) : 0,
+                'currentVersion' => 1,
+                'updatedAt' => '',
+                'metadata' => $meta,
+                'machineLinks' => $rowMachineLinks,
+                'isFolder' => false,
+            ];
+        }
+    }
+
+    return array_values($byPath);
+}
+
 function n_doc_action_search(string $rootReal, array $permissions, string $email, bool $isAdmin): void
 {
-    $q = strtolower(trim((string)($_GET['q'] ?? '')));
+    $qRaw = trim((string)($_GET['q'] ?? ''));
+    $max = N_DOC_SEARCH_QUERY_MAX;
+    if (function_exists('mb_strlen') && function_exists('mb_substr') && mb_strlen($qRaw, 'UTF-8') > $max) {
+        $qRaw = mb_substr($qRaw, 0, $max, 'UTF-8');
+    } elseif (strlen($qRaw) > $max) {
+        $qRaw = substr($qRaw, 0, $max);
+    }
+    $q = strtolower($qRaw);
     $filters = n_doc_normalize_metadata([
         'department' => $_GET['department'] ?? '',
         'documentType' => $_GET['documentType'] ?? '',
@@ -1170,8 +1582,16 @@ function n_doc_action_search(string $rootReal, array $permissions, string $email
         }
     }
 
-    if ($q === '') {
+    if ($q === '' && $machineId === '' && !$hasMetaFilter) {
         n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'documentTypes' => N_DOC_DOCUMENT_TYPES, 'items' => []]);
+
+        return;
+    }
+
+    if ($q === '') {
+        $results = n_doc_search_items_index_only($rootReal, $permissions, $email, $isAdmin, $filters, $machineId, $hasMetaFilter);
+        n_doc_search_sort_results($results);
+        n_doc_json(200, ['ok' => true, 'version' => N_DOC_VERSION, 'documentTypes' => N_DOC_DOCUMENT_TYPES, 'items' => $results]);
 
         return;
     }

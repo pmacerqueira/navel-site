@@ -2,10 +2,7 @@
 
 Como publicar o site da Navel (navel.pt) no cPanel.
 
-> **Desde `0.2.5`** o caminho primário é o **deploy automático via FTPS**
-> (`npm run deploy:*`). Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md` para setup
-> único (conta FTP dedicada + `.env.cpanel`). O fluxo manual abaixo continua
-> válido como fallback ou para quem preferir arrastar um ZIP no File Manager.
+> **Deploy automático** (`npm run deploy:*`): **SFTP** (ex. navel.pt, porta **11022**) ou **FTPS** conforme `.env.cpanel`. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md` e `docs/HOSTING-CIBERCONCEITO-NAVEL.md`. O fluxo com **ZIP** no File Manager continua como fallback.
 
 ---
 
@@ -41,12 +38,12 @@ Executar **`OPTIMIZAR.bat`** na pasta do projeto. O script:
 1. Descarrega thumbnails (Facom, Beta, XTOOLS) para `public/images/catalogos/`
 2. Verifica imagens obrigatórias
 3. Otimiza imagens (sharp)
-4. Faz **build** (`npm run build`), que inclui **`prebuild`** → **`merge-locales`** (política de privacidade e RGPD a partir de `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` → `src/locales`) e só depois o Vite
-5. Cria **`navel-publicar.zip`** com o conteúdo de `dist/`
+4. Faz **build** (`npm run build`), que inclui **`prebuild`** → **`merge-locales`** (política de privacidade e RGPD a partir de `scripts/privacy-locale-*.json` e `rgpd-locale-*.json` → `src/locales`, mais **patch PT** `scripts/pt-ui-patch-data.mjs` → `pt.json`) e só depois o Vite
+5. Cria **`navel-publicar.zip`** com `node scripts/make-zip.js` (conteúdo na **raiz** do ZIP; **sem** `catalogos/` por defeito — PDFs ficam no servidor)
 
-Usar sempre **OPTIMIZAR.bat** para publicar; assim o ZIP inclui todos os recursos (incl. catálogos).
+Para publicação **completa** com catálogos no ZIP: `node scripts/make-zip.js --with-catalogos`. O **OPTIMIZAR.bat** pode incluir passos extra de imagens; o ZIP final segue as regras do `make-zip.js`.
 
-**Traduções legais longas:** editar os JSON em **`scripts/`** conforme `docs/INDEX.md` e `README.md`; não confiar só em edições parciais dentro de `src/locales/*.json` para `privacy` / `rgpd`, pois o próximo build repõe essas chaves a partir dos ficheiros-fonte.
+**Traduções:** editar os JSON em **`scripts/`** conforme `docs/INDEX.md` e `README.md`. O build **repõe** `privacy` / `rgpd` a partir de `privacy-locale-*` / `rgpd-locale-*` e **funde** o copy público em PT a partir de **`scripts/pt-ui-patch-data.mjs`** — não editar só `pt.json` para esse conteúdo sem actualizar o patch, senão a próxima `merge-locales` pode sobrescrever.
 
 ---
 
@@ -58,9 +55,8 @@ Usar sempre **OPTIMIZAR.bat** para publicar; assim o ZIP inclui todos os recurso
 npm run deploy:all -- --yes
 ```
 
-Envia `dist/` (sem catálogos) + todos os `public/*.php` via FTPS para
-`/home/navel/public_html/`. Upload incremental por hash SHA-1 — nas vezes
-seguintes só envia o que mudou. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
+Envia `dist/` (sem catálogos) + todos os `public/*.php` via **SFTP ou FTPS** para
+`public_html` (caminho configurado em `CPANEL_REMOTE_ROOT`). Upload incremental por SHA-1. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
 
 **Opção B — File Manager manual (fallback):**
 
@@ -75,19 +71,29 @@ seguintes só envia o que mudou. Ver `docs/DEPLOY-AUTOMATICO-CPANEL.md`.
 
 ## 3. Estrutura no servidor
 
+Na mesma conta cPanel coexistem o **site institucional** (este repo) e a app operacional **AT_Manut** (outro repositório), sob o mesmo domínio **www.navel.pt**:
+
 ```
 public_html/
-├── index.html
+├── index.html              ← navel-site (SPA raiz)
 ├── favicon.ico
 ├── robots.txt
 ├── sitemap.xml
 ├── send-contact.php
+├── documentos-api.php      ← Área reservada / integrações (ver docs)
 ├── .htaccess
 ├── assets/
-└── images/          (logo, og-image, flags, brands, campaigns, catalogos)
+├── images/
+├── api/                    ← AT_Manut: PHP (data.php, db.php, config.php, …)
+├── manut/                  ← AT_Manut: PWA (index.html, assets/, …)
+└── uploads/                ← partilhado (ex. machine-docs, brand-logos)
 ```
 
 URLs limpas (ex.: `https://navel.pt/contacto`). O ficheiro **`.htaccess`** no `dist/` faz fallback para `index.html` nas rotas da SPA e redirecciona **www → navel.pt** (sem www).
+
+**AT_Manut:** `https://www.navel.pt/manut` (ou equivalente); API típica `https://www.navel.pt/api`. Deploy da app e da API: ver o repositório **AT_Manut** (`docs/DEPLOY_CHECKLIST.md`). Para enviar **só** um PHP da API com as credenciais deste projeto: `docs/DEPLOY-AUTOMATICO-CPANEL.md` → secção *AT_Manut (ficheiros em `public_html/api/`)*.
+
+**Alojamento partilhado:** o mesmo `public_html/` é um namespace único — donos por pasta, sem homónimos acidentais nem substituição cega de `api/data.php`. Política e checklist: **`../AT_Manut/docs/CPIANEL-NAVEL-SHARED-HOSTING.md`**.
 
 ---
 

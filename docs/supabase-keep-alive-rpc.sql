@@ -11,7 +11,7 @@
 -- explícita (recomendado em guias comunitários de "pause prevention").
 -- =============================================================================
 
--- Tabela mínima (uma linha). Sem políticas RLS para anon — só a função SECURITY DEFINER toca na tabela.
+-- Tabela mínima (uma linha).
 CREATE TABLE IF NOT EXISTS public.supabase_keepalive_heartbeats (
   id smallint PRIMARY KEY CHECK (id = 1),
   last_ping timestamptz NOT NULL DEFAULT now()
@@ -21,20 +21,19 @@ INSERT INTO public.supabase_keepalive_heartbeats (id, last_ping)
 VALUES (1, now())
 ON CONFLICT (id) DO NOTHING;
 
-ALTER TABLE public.supabase_keepalive_heartbeats ENABLE ROW LEVEL SECURITY;
+-- 2026-06-12: função passou a SECURITY INVOKER com políticas RLS explícitas.
+-- A versão anterior (SECURITY DEFINER + EXECUTE para anon) levantava o aviso
+-- «Public Can Execute SECURITY DEFINER Function» no Security Advisor.
+-- Pior abuso possível: actualizar um timestamp — inócuo.
 
--- Impedir leitura/escrita directa por roles da aplicação (opcional mas explícito)
-REVOKE ALL ON TABLE public.supabase_keepalive_heartbeats FROM anon, authenticated;
-
--- Se já existia keep_alive_ping() com outro tipo de retorno (ex.: smallint), CREATE OR REPLACE falha.
--- É preciso remover primeiro; os GRANT abaixo voltam a aplicar-se à função nova.
+-- Se existia versão antiga com outro tipo de retorno, CREATE OR REPLACE falha.
 DROP FUNCTION IF EXISTS public.keep_alive_ping();
 
 CREATE OR REPLACE FUNCTION public.keep_alive_ping()
 RETURNS timestamptz
 LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
+SECURITY INVOKER
+SET search_path = public, pg_temp
 AS $$
   UPDATE public.supabase_keepalive_heartbeats
   SET last_ping = now()
@@ -42,7 +41,20 @@ AS $$
   RETURNING last_ping;
 $$;
 
-REVOKE ALL ON FUNCTION public.keep_alive_ping() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.keep_alive_ping() TO anon;
-GRANT EXECUTE ON FUNCTION public.keep_alive_ping() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.keep_alive_ping() TO service_role;
+-- Invoker precisa de privilégios na tabela + políticas RLS.
+GRANT SELECT, UPDATE ON TABLE public.supabase_keepalive_heartbeats TO anon;
+
+ALTER TABLE public.supabase_keepalive_heartbeats ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Heartbeat row is readable" ON public.supabase_keepalive_heartbeats;
+CREATE POLICY "Heartbeat row is readable"
+  ON public.supabase_keepalive_heartbeats FOR SELECT
+  TO anon
+  USING (id = 1);
+
+DROP POLICY IF EXISTS "Heartbeat row can be bumped" ON public.supabase_keepalive_heartbeats;
+CREATE POLICY "Heartbeat row can be bumped"
+  ON public.supabase_keepalive_heartbeats FOR UPDATE
+  TO anon
+  USING (id = 1)
+  WITH CHECK (id = 1);

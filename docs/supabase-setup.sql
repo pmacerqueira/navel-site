@@ -40,25 +40,29 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- RLS: utilizadores veem o próprio perfil
+-- Não expor handle_new_user como RPC (Security Advisor): só o trigger corre a função.
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM anon, authenticated;
+
+-- RLS profiles: uma política SELECT (performance) + UPDATE com WITH CHECK explícito
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can read own profile" ON profiles;
-CREATE POLICY "Users can read own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
-
--- Admin: usar email do JWT (o role authenticated não pode ler auth.users em RLS)
 DROP POLICY IF EXISTS "Admin can read all" ON profiles;
-CREATE POLICY "Admin can read all"
+DROP POLICY IF EXISTS "profiles_select_own_or_admin" ON profiles;
+CREATE POLICY "profiles_select_own_or_admin"
   ON profiles FOR SELECT
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt');
+  USING (
+    (SELECT auth.uid()) = id
+    OR ((SELECT auth.jwt()) ->> 'email') = 'comercial@navel.pt'
+  );
 
 DROP POLICY IF EXISTS "Admin can update approved" ON profiles;
-CREATE POLICY "Admin can update approved"
+DROP POLICY IF EXISTS "profiles_admin_update_approved" ON profiles;
+CREATE POLICY "profiles_admin_update_approved"
   ON profiles FOR UPDATE
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt')
-  WITH CHECK (true);
+  USING (((SELECT auth.jwt()) ->> 'email') = 'comercial@navel.pt')
+  WITH CHECK (((SELECT auth.jwt()) ->> 'email') = 'comercial@navel.pt');
 
 -- =============================================================================
 -- Storage: bucket documentos (catálogos, tabelas de preços, manuais)
@@ -74,6 +78,7 @@ CREATE OR REPLACE FUNCTION public.is_admin_documentos()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = public
 AS $$
   SELECT COALESCE((auth.jwt()->>'email') = 'comercial@navel.pt', false);
 $$;

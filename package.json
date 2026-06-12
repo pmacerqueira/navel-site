@@ -23,6 +23,7 @@
     "deploy:file": "node scripts/cpanel-deploy.mjs",
     "deploy:all": "node scripts/cpanel-deploy.mjs --all",
     "deploy:at-manut": "node scripts/cpanel-deploy.mjs --at-manut",
+    "deploy:at-manut:prune": "node scripts/cpanel-prune-at-manut.mjs",
     "cpanel:hygiene": "node scripts/cpanel-server-hygiene.mjs",
     "test:onedrive-cron": "node scripts/test-onedrive-cron-now.mjs"
   },

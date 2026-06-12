@@ -15,6 +15,7 @@ CREATE OR REPLACE FUNCTION public.is_admin_documentos()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = public
 AS $$
   SELECT COALESCE((auth.jwt()->>'email') = 'comercial@navel.pt', false);
 $$;

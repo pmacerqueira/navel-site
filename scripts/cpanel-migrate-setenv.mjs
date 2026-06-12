@@ -11,7 +11,8 @@
  *      conteúdo existente (sem o bloco de exemplo comentado).
  *   5. Upload do .htaccess.bak-YYYYMMDD-HHMMSS antes de substituir.
  *   6. Upload do novo .htaccess.
- *   7. Smoke-test HTTPS ao endpoint /api/data.php.
+ *   7. Upload de config.cli-env.php (putenv para SAPI CLI — pipe ISTOBAL, cron).
+ *   8. Smoke-test HTTPS ao endpoint /api/data.php.
  *
  * Uso:
  *   node scripts/cpanel-migrate-setenv.mjs                  # dry-run
@@ -78,6 +79,28 @@ const remoteRoot = (env.CPANEL_REMOTE_ROOT || '/public_html').replace(/\\/g, '/'
 const remoteApi = remoteRoot.replace(/\/+$/, '') + '/api'
 const remoteHtaccess = `${remoteApi}/.htaccess`
 const remoteSecrets = `${remoteApi}/config.deploy-secrets.php`
+const remoteCliEnv = `${remoteApi}/config.cli-env.php`
+
+/** Fonte de putenv no servidor: activo ou último `.disabled-*` (arquivado após migração). */
+async function resolveDeploySecretsRemotePath(sftp) {
+  if (await sftp.exists(remoteSecrets)) {
+    return remoteSecrets
+  }
+  let entries = []
+  try {
+    entries = await sftp.list(remoteApi)
+  } catch {
+    return null
+  }
+  const disabled = entries
+    .map((e) => e.name)
+    .filter((n) => /^config\.deploy-secrets\.php\.disabled-/.test(n))
+    .sort()
+  if (disabled.length === 0) {
+    return null
+  }
+  return `${remoteApi}/${disabled[disabled.length - 1]}`
+}
 
 // ---------------------------------------------------------------------------
 // Parse putenv() — aceita:
@@ -147,6 +170,34 @@ function rewriteEnvLine(key, value) {
 }
 
 // ---------------------------------------------------------------------------
+// PHP CLI não passa pelo .htaccess — mesmos valores em putenv() (parse-istobal-email.php).
+// Aspas simples: só \\ e \' são especiais.
+// ---------------------------------------------------------------------------
+function phpSingleQuoted(value) {
+  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
+function buildCliEnvPhp(vars) {
+  const keys = [...vars.keys()].sort()
+  const lines = [
+    '<?php',
+    '/**',
+    ' * Gerado por navel-site/scripts/cpanel-migrate-setenv.mjs — não editar.',
+    ' * Só é incluído em SAPI cli/phpdbg por config.php (pipe ISTOBAL, cron).',
+    ' * Bloqueado a HTTP pelo FilesMatch no .htaccess da pasta api/.',
+    ' */',
+    'declare(strict_types=1);',
+    '',
+  ]
+  for (const k of keys) {
+    const pair = `${k}=${vars.get(k)}`
+    lines.push(`putenv(${phpSingleQuoted(pair)});`)
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+// ---------------------------------------------------------------------------
 // Template canónico do .htaccess — reconstruído do zero para ser determinístico
 // e não arrastar lixo de versões anteriores. Mantém o bloco de segurança
 // FilesMatch e adiciona o bloco dinâmico de ATM_ENV via mod_rewrite.
@@ -182,6 +233,9 @@ function buildNewHtaccess(_existingIgnored, vars) {
     '    Require all denied',
     '  </FilesMatch>',
     '  <FilesMatch "^config\\.deploy-secrets\\.php(\\.disabled-.*)?$">',
+    '    Require all denied',
+    '  </FilesMatch>',
+    '  <FilesMatch "^config\\.cli-env\\.php$">',
     '    Require all denied',
     '  </FilesMatch>',
     '  <FilesMatch "^atm_report_auth\\.secret\\.php$">',
@@ -257,17 +311,20 @@ async function main() {
 
   await sftp.connect(connect)
   try {
-    // 1) Verificar existência do config.deploy-secrets.php
-    const hasSecrets = await sftp.exists(remoteSecrets)
-    if (!hasSecrets) {
-      console.error(`❌ Não existe ${remoteSecrets}.`)
-      console.error('   A app já deve estar a ler variáveis do cPanel — abortar migração.')
+    // 1) Fonte putenv (activa ou arquivada .disabled-*)
+    const secretsPath = await resolveDeploySecretsRemotePath(sftp)
+    if (!secretsPath) {
+      console.error(`❌ Não existe ${remoteSecrets} nem config.deploy-secrets.php.disabled-* em ${remoteApi}.`)
+      console.error('   Sem estes ficheiros não há valores para gerar .htaccess nem config.cli-env.php.')
       process.exit(4)
+    }
+    if (secretsPath !== remoteSecrets) {
+      console.log(`(info) A usar fonte arquivada: ${secretsPath}`)
     }
     // 2) Download para TMP
     const localSecrets = join(TMP_DIR, 'config.deploy-secrets.php')
     const localHtaccess = join(TMP_DIR, 'htaccess-remote.txt')
-    await sftp.fastGet(remoteSecrets, localSecrets)
+    await sftp.fastGet(secretsPath, localSecrets)
     const hasHtaccess = await sftp.exists(remoteHtaccess)
     let existingHtaccess = ''
     if (hasHtaccess) {
@@ -315,6 +372,8 @@ async function main() {
         return ln
       })
       console.log(lines.join('\n'))
+      const cliPhp = buildCliEnvPhp(vars)
+      console.log(`\n(config.cli-env.php seria ${cliPhp.length} bytes, ${vars.size} linhas putenv)`)
       console.log('\n(DRY-RUN) Volta a correr com --yes para aplicar.')
       return
     }
@@ -330,12 +389,21 @@ async function main() {
     await sftp.fastPut(localNew, remoteHtaccess)
     console.log(`Upload OK: ${remoteHtaccess}`)
 
+    // 7b) CLI (mail pipe ISTOBAL): mesmo mapa de vars em putenv()
+    const localCli = join(TMP_DIR, 'config.cli-env.php')
+    const cliBody = buildCliEnvPhp(vars)
+    writeFileSync(localCli, cliBody, 'utf8')
+    await sftp.fastPut(localCli, remoteCliEnv)
+    console.log(`Upload OK: ${remoteCliEnv} (${cliBody.length} bytes)`)
+
     // 8) Opcional: renomear config.deploy-secrets.php para .disabled
-    if (removeFallback) {
+    if (removeFallback && (await sftp.exists(remoteSecrets))) {
       const disabled = `${remoteSecrets}.disabled-${timestamp()}`
       await sftp.rename(remoteSecrets, disabled)
       console.log(`Fallback renomeado: ${disabled}`)
       console.log('   (não foi apagado — faz rollback renomeando de volta se algo falhar)')
+    } else if (removeFallback) {
+      console.log('\n(info) config.deploy-secrets.php já inexistente — só foi actualizado .htaccess + config.cli-env.php.')
     } else {
       console.log(
         '\n(fallback) config.deploy-secrets.php mantido. Após validar, podes\n' +

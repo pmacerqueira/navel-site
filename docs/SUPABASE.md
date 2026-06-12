@@ -42,13 +42,13 @@ Se o email já existir em **Authentication → Users**, apague o utilizador de t
 
 ### Admin: lista de pendentes vazia (mas há linhas em `profiles`)
 
-As políticas antigas consultavam `auth.users` dentro do RLS; com o cliente autenticado isso não devolve o email do admin, por isso a página **Admin** não mostrava ninguém. Execute **`docs/supabase-fix-admin-pending-list-rls.sql`** no SQL Editor (ou volte a aplicar o bloco RLS de `docs/supabase-setup.sql` actualizado).
+As políticas antigas consultavam `auth.users` dentro do RLS; com o cliente autenticado isso não devolve o email do admin, por isso a página **Admin** não mostrava ninguém. Execute **`docs/supabase-security-hardening-2026-02.sql`** (ou o bloco RLS actualizado de **`docs/supabase-setup.sql`**). O ficheiro `supabase-fix-admin-pending-list-rls.sql` é legado.
 
 ### Erro ao ler perfil: `permission denied for table users`
 
 Uma política em **`public.profiles`** (quase sempre **«Admin can read all»** antiga) ainda faz **subconsulta a `auth.users`**. O cliente autenticado **não pode** ler essa tabela, e o Postgres **falha o `SELECT` em `profiles` por completo** — nem o utilizador consegue ler a própria linha.
 
-Execute no **SQL Editor**: **`docs/supabase-fix-profiles-rls-permission-denied-users.sql`** (recria políticas de admin com JWT e a política «ler o próprio perfil», e actualiza `is_admin_documentos()` sem `auth.users`).
+Execute no **SQL Editor**: **`docs/supabase-security-hardening-2026-02.sql`** (políticas RLS consolidadas + `is_admin_documentos()` com `search_path` fixo; o ficheiro `supabase-fix-profiles-rls-permission-denied-users.sql` é legado e só indica este script).
 
 ### Aprovado no Table Editor mas o site continua a pedir aprovação
 
@@ -86,6 +86,24 @@ Em **Authentication** → **URL Configuration**:
 - **Redirect URLs:** inclua pelo menos `https://navel.pt/login` e, para desenvolvimento local, `http://localhost:3000/login`
 
 (O registo usa `emailRedirectTo` para `/login`; sem estas entradas, a confirmação por email pode falhar.)
+
+### Protecção contra palavras-passe vazadas (Security Advisor) — **não activar no NAVEL**
+
+O painel **Advisors → Security** pode mostrar *«Leaked password protection disabled»*. Isto **não se corrige por SQL**; no Supabase costuma exigir **plano pago** (*Leaked password protection* / *Attack Protection* no Auth).
+
+**Decisão NAVEL:** manter o **plano gratuito** e **não** subscrever só por este aviso. O warning no Advisor é **aceitável** e pode ser ignorado.
+
+Medidas que já temos sem custo extra: confirmação de email no registo, aprovação manual em `profiles`, palavras-passe com mínimo de 8 caracteres no formulário do site, e o hardening SQL da secção 4b.
+
+## 4b. Hardening SQL (Security + Performance Advisors)
+
+Alterações aplicadas ao projecto de produção **NAVEL** (2026-02) e reproduzíveis em novos ambientes:
+
+- **`docs/supabase-security-hardening-2026-02.sql`** — políticas `profiles` optimizadas (uma política SELECT; `WITH CHECK` no UPDATE sem `true` mutable); `is_admin_documentos` com `SET search_path`; `handle_new_user` sem `EXECUTE` para `anon`/`authenticated` (deixa de ser RPC pública); `keep_alive_ping` sem `EXECUTE` para `authenticated` (o cron continua com chave **anon**).
+
+**Actualização 2026-06-12:** `keep_alive_ping` passou de `SECURITY DEFINER` para **`SECURITY INVOKER`** com políticas RLS explícitas na tabela `supabase_keepalive_heartbeats` (ver `docs/supabase-keep-alive-rpc.sql`). O aviso «Public Can Execute SECURITY DEFINER Function» desapareceu do *Security Advisor* e o cron PHP continua a funcionar sem alterações. O único aviso restante é *Leaked Password Protection* (não disponível no plano gratuito).
+
+Para rever lints: **Database → Advisors** (ou usar a API de advisors no teu fluxo CI, se tiveres).
 
 ## 5. Bucket de documentos
 
@@ -152,8 +170,8 @@ O Supabase pode **pausar** projectos free-tier após cerca de **7 dias sem activ
 
 ### No Supabase (uma vez)
 
-1. **SQL Editor** → executar o conteúdo de **`docs/supabase-keep-alive-rpc.sql`** (tabela `supabase_keepalive_heartbeats` + função `keep_alive_ping` com `UPDATE` real).
-2. Se já tinha a versão antiga (só `SELECT 1`), volte a executar o ficheiro completo para criar a tabela e substituir a função.
+1. **SQL Editor** → executar o conteúdo de **`docs/supabase-keep-alive-rpc.sql`** (tabela `supabase_keepalive_heartbeats` + função `keep_alive_ping` com `UPDATE` real; desde 2026-06-12 a função é `SECURITY INVOKER` com políticas RLS na tabela).
+2. Se já tinha uma versão antiga (só `SELECT 1`, ou a variante `SECURITY DEFINER`), volte a executar o ficheiro completo — substitui a função e aplica as políticas.
 
 ### No servidor (navel.pt)
 

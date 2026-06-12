@@ -1,6 +1,32 @@
 # Changelog — navel-site
 
-## [0.2.7] — 2026-04-17
+## Supabase keep-alive INVOKER + revisão Bugbot + limpeza docs — 2026-06-12
+
+### Supabase (aplicado em produção)
+
+- **`keep_alive_ping` passou de `SECURITY DEFINER` para `SECURITY INVOKER`** com políticas RLS explícitas na tabela `supabase_keepalive_heartbeats` (migração `keep_alive_invoker_policies`). Elimina o aviso «Public Can Execute SECURITY DEFINER Function» do Security Advisor; o cron PHP (`keep-alive-supabase.php`) continua a funcionar sem alterações — RPC testada com chave anon após a mudança. Advisor limpo (resta só *Leaked Password Protection*, indisponível no plano free).
+- `docs/supabase-keep-alive-rpc.sql` reescrito para refletir o modelo novo; `docs/supabase-security-hardening-2026-02.sql` deixou de desactivar o RLS dos heartbeats (contradizia o modelo novo) e o `REVOKE` sobre `keep_alive_ping` passou a condicional (não aborta em ambientes sem a função).
+
+### Correcções (revisão Bugbot)
+
+- **`scripts/cpanel-prune-at-manut.mjs`** — guarda de segurança: o prune recusa executar se o `index.html` remoto diferir do dist local (ou seja, antes do deploy). Evitava-se o intervalo em que `/manut/` servia 404s nos chunks JS/CSS antigos. Ordem correcta documentada no cabeçalho: **deploy primeiro, prune depois**.
+
+### Limpeza de documentação
+
+- **Removidos** (obsoletos): `AMANHA-PENDENTE.txt` (lembrete de Abril já cumprido), `deploy-navel-20260418-1401-LEIA-ISTO.txt`, `deploy-navel-20260418-cpanel-safe-LEIA-ISTO.txt`, `deploy-navel-public_html-root-LEIA-ISTO.txt` (notas de ZIPs manuais one-shot, superados pelo deploy automático), `SETUP-SUPABASE.txt` (redirect redundante para `docs/SUPABASE.md`).
+- `docs/SUPABASE.md` — secção de hardening e §8 keep-alive actualizadas; removida a nota do «aviso residual aceitável» (já não existe).
+
+---
+
+## Supabase — Security & Performance Advisors (produção) — 2026-05-19
+
+- **Aplicado remotamente** ao projecto **NAVEL** no dashboard Supabase: migrações `harden_profiles_rls_and_functions` e `fix_profiles_rls_auth_jwt_initplan`.
+- **Security:** `is_admin_documentos()` com `SET search_path = public`; política `profiles` UPDATE com `WITH CHECK` explícito; `REVOKE EXECUTE` em `handle_new_user` para `anon`/`authenticated` (o trigger em `auth.users` mantém-se); `keep_alive_ping` sem `EXECUTE` para `authenticated`; `supabase_keepalive_heartbeats` com RLS desactivado (tabela já sem acesso directo a anon/authenticated).
+- **Performance (Advisors):** políticas `profiles` com `(SELECT auth.uid())` / `(SELECT auth.jwt())`; política SELECT única `profiles_select_own_or_admin`.
+- **Documentação:** `docs/supabase-security-hardening-2026-02.sql`; actualizações em `docs/supabase-setup.sql`, `docs/supabase-keep-alive-rpc.sql`, políticas storage, `docs/SUPABASE.md` (incl. *leaked password protection* no dashboard). Ficheiros `supabase-fix-admin-pending-list-rls.sql` e `supabase-fix-profiles-rls-permission-denied-users.sql` legados → apontam para o script de hardening.
+- **Residual:** Advisor pode avisar que **anon** executa `keep_alive_ping` `SECURITY DEFINER` — intencional para `keep-alive-supabase.php`. **Leaked password protection** só no painel Auth (passos em `SUPABASE.md`).
+
+---
 
 ### i18n — site público em português (correcção estrutural)
 

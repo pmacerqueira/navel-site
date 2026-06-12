@@ -1,39 +1,11 @@
 -- =============================================================================
--- Correcção: "permission denied for table users" ao ler public.profiles
+-- Legado — substituído por docs/supabase-security-hardening-2026-02.sql
 -- =============================================================================
--- Sintoma no site: "Não foi possível ler o perfil: permission denied for table users"
+-- Este ficheiro recriava políticas antigas («Users can read own profile» +
+-- «Admin can read all») e is_admin_documentos sem search_path fixo.
 --
--- Causa: uma política RLS em profiles (muito frequentemente "Admin can read all"
--- antiga) usa subconsulta a auth.users. O role authenticated NÃO pode ler
--- auth.users; o Postgres avalia todas as políticas permissivas e a expressão
--- falha, abortando o SELECT mesmo para o próprio utilizador.
---
--- Solução: recriar as políticas de admin SEM auth.users — só JWT, como no
--- setup actual. Executar no SQL Editor → Run (projecto correcto).
+-- Para corrigir permission denied em profiles ou alinhar com o projecto actual:
+--   docs/supabase-security-hardening-2026-02.sql
 -- =============================================================================
 
-DROP POLICY IF EXISTS "Admin can read all" ON public.profiles;
-CREATE POLICY "Admin can read all"
-  ON public.profiles FOR SELECT
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt');
-
-DROP POLICY IF EXISTS "Admin can update approved" ON public.profiles;
-CREATE POLICY "Admin can update approved"
-  ON public.profiles FOR UPDATE
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt')
-  WITH CHECK (true);
-
--- Garantir leitura do próprio perfil (recriar por segurança)
-DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
-CREATE POLICY "Users can read own profile"
-  ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
-
--- Função usada nas políticas de Storage: remover leitura a auth.users (mesmo padrão)
-CREATE OR REPLACE FUNCTION public.is_admin_documentos()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT COALESCE((auth.jwt()->>'email') = 'comercial@navel.pt', false);
-$$;
+SELECT 'Execute docs/supabase-security-hardening-2026-02.sql em vez deste ficheiro.' AS instruction;

@@ -1,21 +1,12 @@
 -- =============================================================================
--- Correcção: Admin não vê utilizadores pendentes (lista vazia)
+-- Legado — substituído por docs/supabase-security-hardening-2026-02.sql
 -- =============================================================================
--- As políticas antigas usavam (SELECT email FROM auth.users WHERE id = auth.uid()).
--- O role authenticated não consegue ler auth.users nesse contexto, pelo que a
--- condição falha e o admin só "via" o próprio perfil — nunca os pendentes.
+-- O conteúdo antigo recriava só «Admin can read all» e partia o padrão actual
+-- (política SELECT única «profiles_select_own_or_admin»).
 --
--- Substituir por email no JWT (igual ao fallback em is_admin_documentos()).
--- Executar no SQL Editor → Run.
+-- Para corrigir lista de pendentes vazia ou políticas antigas, execute no SQL Editor:
+--   docs/supabase-security-hardening-2026-02.sql
+-- ou o bloco RLS completo em docs/supabase-setup.sql
 -- =============================================================================
 
-DROP POLICY IF EXISTS "Admin can read all" ON public.profiles;
-CREATE POLICY "Admin can read all"
-  ON public.profiles FOR SELECT
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt');
-
-DROP POLICY IF EXISTS "Admin can update approved" ON public.profiles;
-CREATE POLICY "Admin can update approved"
-  ON public.profiles FOR UPDATE
-  USING ((auth.jwt()->>'email') = 'comercial@navel.pt')
-  WITH CHECK (true);
+SELECT 'Execute docs/supabase-security-hardening-2026-02.sql em vez deste ficheiro.' AS instruction;
